@@ -1,0 +1,42 @@
+* A hybrid component system.
+There are a set of predefined components to make your life easier.
+You can add new components simply by making a new defclass from component
+and adding in whatever you want.
+
+** Toplevel Standard Definitions
+#+BEGIN_SRC common-lisp
+(defclass component () ())
+
+(defclass gobj ()
+  ((%components :initarg :components
+                :initform NIL
+                :accessor components)))
+#+END_SRC
+
+** Example components provided to you
+#+BEGIN_SRC common-lisp
+(defclass transform (component)
+  ((%px :initarg :px
+        :initform 0
+        :accessor px)
+   ;; and so on
+   ))
+
+#+END_SRC
+
+** Components you can author
+#+BEGIN_SRC common-lisp
+(defclass hit-points (component)
+  ((%hp :initarg :hp
+	:initform 0
+	:accessor hp)))
+#+END_SRC
+
+
+* A scene tree DSL using that component system.
+
+* Extensible call graph for each component
+We define a MASTER graph of defmethods and transitions that all
+
+* An explicit component initialization description.
+Initialize all game objects by type of component.
