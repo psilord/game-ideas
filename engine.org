@@ -100,16 +100,16 @@ should be a macro expansion in order to do the code walking correctly.
      ;; a component describing the gun mechanics
      (gun
       :shots 10
-      :type :hardnose))
+      :type :hardnose)))
 
-    (<gun2>
-     ((transform
-       :x 0 :y 0 :z 0
-       :sx 1 :sy 1 :sz 1
-       :xrot 0 :yrot 0 :zrot 0)
-      (gun
-       :shots 10
-       :type :hardnose)))))))
+   (<gun2>
+    ((transform
+      :x 0 :y 0 :z 0
+      :sx 1 :sy 1 :sz 1
+      :xrot 0 :yrot 0 :zrot 0)
+     (gun
+      :shots 10
+      :type :hardnose))))))
 
 
 ;; possible expansion, or, an engine that accepts the DSL and does this
