@@ -3,6 +3,10 @@ There are a set of predefined components to make your life easier.
 You can add new components simply by making a new defclass from component
 and adding in whatever you want.
 
+A gobj class simply has a list of components and nothing else.
+Components can be added or subtracted at will and are usually defined
+in the scene tree DSL but they can be programmatically made too.
+
 ** Toplevel Standard Definitions
 #+BEGIN_SRC common-lisp
 (defclass component () ())
@@ -19,9 +23,24 @@ and adding in whatever you want.
   ((%px :initarg :px
         :initform 0
         :accessor px)
-   ;; and so on
+   ;; and so on for all state variables.
+
+   (%parent :initarg :parent
+	    :initform NIL
+	    :accessor parent)
+   (%children :initarg :children
+	      :initform ()
+	      :accessor children)
    ))
 
+;; A stupid simple means to assign one or more tags to a gobj.
+;; in a real implementation, this might point to some previously
+;; created table to make lookups for all gobjs with this tag extremely
+;; fast, etc.p
+(defclass tags (component)
+  ((%tags :initarg :tags
+	  :initform NIL
+	  :accessor tags)))
 #+END_SRC
 
 ** Components you can author
@@ -34,9 +53,192 @@ and adding in whatever you want.
 
 
 * A scene tree DSL using that component system.
+Here is a possible view of the scene tree DSL. VERY ROUGH. Probably
+should be a macro expansion in order to do the code walking correctly.
+
+#+BEGIN_SRC common-lisp
+(scene ;; universe root
+
+ (<player-ship>
+  ;; instance components
+  ((transform
+    :x 0 :y 0 :z 0
+    :sx 1 :sy 1 :sz 1
+    :xrot 0 :yrot 0 :zrot 0))
+
+  ;; subpiece of the ship
+  (<turret>
+   ;; components
+   ((transform
+     :x 1 :y 2 :z 0
+     :sx 1 :sy 1 :sz 1
+     :xrot 0 :yrot 0 :zrot 0)
+
+    ;; a component which allows changing between two guns in that turret
+    (gun-manager
+     :guns (list <gun1> <gun2>)))
+
+   ;; the 2 guns that the turrent can switch between
+   (<gun1>
+    ((transform
+      :x 0 :y 0 :z 0
+      :sx 1 :sy 1 :sz 1
+      :xrot 0 :yrot 0 :zrot 0)
+     ;; a component describing the gun mechanics
+     (gun
+      :shots 10
+      :type :hardnose))
+
+    (<gun2>
+     ((transform
+       :x 0 :y 0 :z 0
+       :sx 1 :sy 1 :sz 1
+       :xrot 0 :yrot 0 :zrot 0)
+      (gun
+       :shots 10
+       :type :hardnose)))))))
+
+
+;; possible expansion, or, an engine that accepts the DSL and does this
+;; at runtime, once. But, more likely a macro does this.
+(let* ((num-objs 4)
+       (objs (make-hash-table))
+       (obj-names `(<player-ship> <turret> <gun1> <gun2>)))
+  ;; First, create the empty game objects so I can have real
+  ;; references to them.
+  (loop :for name :in obj-names :do
+    (setf (gethash name objs) (make-instance 'gobj)))
+
+  ;; The universe root of the scene tree: DEFAULT OBJECT
+  (push (make-instance 'transform :gobj (gethash '<universe> objs)
+                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+        (components (gethash '<universe> objs)))
+
+  ;; now, make all components for each object. The macro processor will
+  ;; have rewritten all names to GETHASH references. Each transform has a
+  ;; reference to the GOBJ it is a component of--used to walk the scene tree
+  ;; when you only have a gobj reference
+  ;;
+  ;; <player-ship>
+  (push (make-instance 'transform :gobj (gethash '<player-ship> objs)
+                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+        (components (gethash '<player-ship> objs)))
+
+  ;; <turret>
+  (push (make-instance 'transform :gobj (gethash '<turret> objs)
+                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+        (components (gethash '<turret> objs)))
+  (push (make-instance 'gun-manager :guns (list (gethash objs '<gun1>)
+                                                (gethash objs '<gun2>)))
+        (components (gethash '<turret> objs)))
+
+  ;; <gun1>
+  (push (make-instance 'transform :gobj (gethash '<gun1> objs)
+                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+        (components (gethash '<gun1> objs)))
+  (push (make-instance 'gun :shots 10 :type :hardnose)
+        (components (gethash '<gun1> objs)))
+
+  ;; <gun2>
+  (push (make-instance 'transform :gobj (gethash '<gun2> objs)
+                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+        (components (gethash '<gun2> objs)))
+  (push (make-instance 'gun :shots 10 :type :hardnose)
+        (components (gethash '<gun2> objs)))
+
+  ;; Then, wire together the scene tree through all known references and the
+  ;; transform component, which keeps the tree.
+  (add-child
+   ;; child
+   (get-component 'transform (gethash '<player-ship> objs))
+   ;; parent
+   (get-component 'transform (gethash '<universe> objs)))
+
+  (add-child (get-component 'transform (gethash '<turret> objs))
+             (get-component 'transform (gethash '<player-ship> objs)))
+
+  (add-child (get-component 'transform (gethash '<gun1> objs))
+             (get-component 'transform (gethash '<turret> objs)))
+
+  (add-child (get-component 'transform (gethash '<gun2> objs))
+             (get-component 'transform (gethash '<turret> objs)))
+
+  ;; and now return the scene tree as a values with the root noted:
+  (values objs '<universe>))
+
+#+END_SRC
 
 * Extensible call graph for each component
-We define a MASTER graph of defmethods and transitions that all
+We define a MASTER graph of defmethods and transitions that are called on
+all components. In this model, all components have the SAME method called
+upon them, and then we move down the state graph to the next method, and
+call that on all components, etc.
+
+#+BEGIN_SRC common-lisp
+(call-flow
+ ;; The actual method signatures, need to see if it'll call most specific
+ ;; version of the object.
+ ;; These are the ONLY method the actual game engine calls on the components.
+ ;; all other methods are called between game components and are defined by
+ ;; the author of those components.
+ ;; A library of these are defined initially and you rarely have to change it,
+ ;; but if you do, you can augment it here and affect the entire expectation
+ ;; of what methods are called on your components and when they are called.
+ (methods
+  (initialize ((c component)))
+  (update ((c component)))
+  (physics-update ((c component)))
+  (render ((c component)))
+  (destroy ((c component))))
+
+ ;; The defined states of the control flow
+ (states
+  (A initialize)
+  (B update)
+  (C physics-update)
+  (D (B C))
+  (E render)
+  (F destroy))
+
+ ;; The connection graph of how the methods are called on all component
+ ;; types.
+ ;; NOTE: might actually put real CL here in order to inspect the
+ ;; components and make decisions!
+ (graph
+  ;; Initialization of a component when it comes into existence.
+  (A -> D)
+  ;; The "game loop"
+  (D -> E -> D)
+  ;; when something is marked destroyed
+  (E -> F)))
+#+END_SRC
 
 * An explicit component initialization description.
-Initialize all game objects by type of component.
+Apply all of the call-graph methods to all components ordered
+by type of component.
+
+#+BEGIN_SRC common-lisp
+(flow-graphs
+
+ ;; This flow graph states how to order the components when the call-flow
+ ;; methods flow graph is applied to them.
+ (component-method-flow
+  ;; T is the root of the DAG and all paths go to NIL, the _last_ leaf
+  ;; that is in the DAG. The last transition can be explicit, or
+  ;; implicitly defined.
+
+  ;; Subdags are graphs that are spliced into the dag graph whereever they are
+  ;; used in the dag.
+  (subdags
+   (unordered ()))
+
+  ;; Only have two components will make more for better example.
+  ;; But, this says, that all transform components must have their methods
+  ;; called on them BEFORE all hit-point components.
+  ;;
+  ;; NOTE: During generation of the code to apply this, any type discovered
+  ;; that is not in the below graph automatically gets added to 'unordered'
+  ;; so the ordering between those types is undefined.
+  (dag
+   (T -> transform -> hitpoints -> unordered -> NIL))))
+#+END_SRC
