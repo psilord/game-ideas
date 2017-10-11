@@ -9,7 +9,11 @@ in the scene tree DSL but they can be programmatically made too.
 
 ** Toplevel Standard Definitions
 #+BEGIN_SRC common-lisp
-(defclass component () ())
+(defclass component ()
+  ;; A reference to the gobj container holding this component.
+  ((%gobj :initarg :gobj
+          :initform NIL
+          :accessor gobj)))
 
 (defclass gobj ()
   ((%components :initarg :components
@@ -25,12 +29,21 @@ in the scene tree DSL but they can be programmatically made too.
         :accessor px)
    ;; and so on for all state variables.
 
+   ;; The generated matricies from the state variables.
+   (%local :initarg :local
+           :initform (mid)
+           :accessor local)
+   (%model :initard :world
+           :initform (mid)
+           :accessor model)
+
+   ;; The hierarchy containing references to appropriate transforms.
    (%parent :initarg :parent
-	    :initform NIL
-	    :accessor parent)
+            :initform NIL
+            :accessor parent)
    (%children :initarg :children
-	      :initform ()
-	      :accessor children)
+              :initform ()
+              :accessor children)
    ))
 
 ;; A stupid simple means to assign one or more tags to a gobj.
@@ -39,16 +52,16 @@ in the scene tree DSL but they can be programmatically made too.
 ;; fast, etc.p
 (defclass tags (component)
   ((%tags :initarg :tags
-	  :initform NIL
-	  :accessor tags)))
+          :initform NIL
+          :accessor tags)))
 #+END_SRC
 
 ** Components you can author
 #+BEGIN_SRC common-lisp
 (defclass hit-points (component)
   ((%hp :initarg :hp
-	:initform 0
-	:accessor hp)))
+        :initform 0
+        :accessor hp)))
 #+END_SRC
 
 
@@ -110,8 +123,9 @@ should be a macro expansion in order to do the code walking correctly.
     (setf (gethash name objs) (make-instance 'gobj)))
 
   ;; The universe root of the scene tree: DEFAULT OBJECT
-  (push (make-instance 'transform :gobj (gethash '<universe> objs)
-                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+  (push (make-instance 'transform
+                       :gobj (gethash '<universe> objs)
+                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
         (components (gethash '<universe> objs)))
 
   ;; now, make all components for each object. The macro processor will
@@ -120,30 +134,40 @@ should be a macro expansion in order to do the code walking correctly.
   ;; when you only have a gobj reference
   ;;
   ;; <player-ship>
-  (push (make-instance 'transform :gobj (gethash '<player-ship> objs)
-                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+  (push (make-instance 'transform
+                       :gobj (gethash '<player-ship> objs)
+                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
         (components (gethash '<player-ship> objs)))
 
   ;; <turret>
-  (push (make-instance 'transform :gobj (gethash '<turret> objs)
-                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+  (push (make-instance 'transform
+                       :gobj (gethash '<turret> objs)
+                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
         (components (gethash '<turret> objs)))
-  (push (make-instance 'gun-manager :guns (list (gethash objs '<gun1>)
-                                                (gethash objs '<gun2>)))
+  (push (make-instance 'gun-manager
+                       :gobj (gethash '<turret> objs)
+                       :guns (list (gethash objs '<gun1>)
+                                   (gethash objs '<gun2>)))
         (components (gethash '<turret> objs)))
 
   ;; <gun1>
-  (push (make-instance 'transform :gobj (gethash '<gun1> objs)
-                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+  (push (make-instance 'transform
+                       :gobj (gethash '<gun1> objs)
+                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
         (components (gethash '<gun1> objs)))
-  (push (make-instance 'gun :shots 10 :type :hardnose)
+  (push (make-instance 'gun
+                       :gobj (gethash '<gun1> objs)
+                       :shots 10 :type :hardnose)
         (components (gethash '<gun1> objs)))
 
   ;; <gun2>
-  (push (make-instance 'transform :gobj (gethash '<gun2> objs)
-                                  :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
+  (push (make-instance 'transform
+                       :gobj (gethash '<gun2> objs)
+                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
         (components (gethash '<gun2> objs)))
-  (push (make-instance 'gun :shots 10 :type :hardnose)
+  (push (make-instance 'gun
+                       :gobj (gethash '<gun2> objs)
+                       :shots 10 :type :hardnose)
         (components (gethash '<gun2> objs)))
 
   ;; Then, wire together the scene tree through all known references and the
