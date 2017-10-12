@@ -88,41 +88,88 @@ call that on all components, etc.
 
 #+BEGIN_SRC common-lisp
 (call-flow
- ;; The actual method signatures, need to see if it'll call most specific
- ;; version of the object.
- ;; These are the ONLY method the actual game engine calls on the components.
- ;; all other methods are called between game components and are defined by
- ;; the author of those components.
- ;; A library of these are defined initially and you rarely have to change it,
- ;; but if you do, you can augment it here and affect the entire expectation
- ;; of what methods are called on your components and when they are called.
- (methods
-  (initialize ((c component)))
-  (update ((c component)))
-  (physics-update ((c component)))
-  (render ((c component)))
-  (destroy ((c component))))
+ ;; Hrm. This is all single dispatch on component, is that good?
 
- ;; The defined states of the control flow
- (states
-  (A initialize)
-  (B update)
-  (C physics-update)
-  (D (B C))
-  (E render)
-  (F destroy))
+ ;; This implies that each component (and game-object?) needs to be in
+ ;; its own state.  Need to explore this and how it relates to
+ ;; creating/destroying game objects as a whole. For example, when a
+ ;; game-object is destroyed, does it mark all components as dead, and
+ ;; the game object as dead? Then things get removed as needed?
 
- ;; The connection graph of how the methods are called on all component
- ;; types.
- ;; NOTE: might actually put real CL here in order to inspect the
- ;; components and make decisions!
- (graph
-  ;; Initialization of a component when it comes into existence.
-  (A -> D)
-  ;; The "game loop"
-  (D -> E -> D)
-  ;; when something is marked destroyed
-  (E -> F)))
+ ;; NOTE: These state transitions *cannot* be implemented in a
+ ;; recursive manner.
+
+ (subflow component-flow
+          (A (lambda (c &rest args)
+               (apply #'reinitialize-initialize c args)
+               B))
+
+          (B (lambda (c &rest args)
+               (apply #'update c args)
+               C))
+
+          (C (lambda (c &rest args)
+               (apply #'physics-update c args)
+               D))
+
+          (D (lambda (c &rest args)
+               (apply #'render c args)
+               E))
+
+          (E (lambda (c &rest args)
+               ;; This component state thing needs more thought, it is
+               ;; part of the core and not something a user should be
+               ;; able to want to use except though API calls to
+               ;; manage it (like creating a component or destroying
+               ;; one).
+               (if (component-status-p 'alive c)
+                   ;; still alive end of this frame, set up next frame.
+                   B
+                   ;; dead, remove it from game at end of frame.
+                   F
+                   )))
+
+          (F (lambda (c &rest args)
+               (apply #'destroy-component c args)
+               G))
+
+          ;; What exactly does this mean for the component? free all references
+          ;; to it so it can be GCed?
+          (G NIL))
+
+
+ ;; This is just like the above, but frun for game objects.
+ (subflow game-object-flow
+          (A (lambda (g &rest args)
+               (if (game-object-status-p 'alive g)
+                   ;; nothing to do, just keep trucking.
+                   A
+                   B)))
+          (B (lambda (g &rest args)
+               (apply #'destroy-game-object g args)
+               C))
+                                        ;l; again, figure this out.
+          (C NIL))
+
+
+ ;; The final flow which settles how the calls are actually run in the above
+ ;; subflows.
+ (flow executive-flow
+       (A (lambda (game-state)
+            (execute-flow (component-db game-state) component-flow)
+            B))
+       (B (lambda (game-state)
+            (execute-flow (game-object-db game-state) game-object-flow)
+            C))
+       (C (lambda (game-state)
+            (if (exitingp game-state)
+                D
+                A)))
+       ;; Probably means game is over. Might need a new state to call the
+       ;; cleanup functions for the entire game, if any, probably hidden in
+       ;; core.
+       (D NIL)))
+
 #+END_SRC
 
 * An explicit component initialization description.
