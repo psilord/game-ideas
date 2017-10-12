@@ -152,8 +152,9 @@ call that on all components, etc.
           (C NIL))
 
 
- ;; The final flow which settles how the calls are actually run in the above
- ;; subflows.
+ ;; The final flow which settles how the calls are actually run in
+ ;; the above subflows. NOTE; needs more work, like where some
+ ;; variables defined here arise.
  (flow executive-flow
        (A (lambda (game-state)
             (execute-flow (component-db game-state) component-flow)
