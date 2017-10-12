@@ -11,52 +11,22 @@ in the scene tree DSL but they can be programmatically made too.
 #+BEGIN_SRC common-lisp
 (defclass component ()
   ;; A reference to the gobj container holding this component.
-  ((%gobj :initarg :gobj
-          :initform NIL
-          :accessor gobj)))
+  ((%game-object :initarg :game-object
+                 :initform NIL
+                 :accessor game-object)))
 
 (defclass gobj ()
-  ((%components :initarg :components
+  ((%id :initarg :id
+        :accessor id)
+   (%components :initarg :components
                 :initform NIL
                 :accessor components)))
 #+END_SRC
 
-** Example components provided to you
-#+BEGIN_SRC common-lisp
-(defclass transform (component)
-  ((%px :initarg :px
-        :initform 0
-        :accessor px)
-   ;; and so on for all state variables.
-
-   ;; The generated matricies from the state variables.
-   (%local :initarg :local
-           :initform (mid)
-           :accessor local)
-   (%model :initard :world
-           :initform (mid)
-           :accessor model)
-
-   ;; The hierarchy containing references to appropriate transforms.
-   (%parent :initarg :parent
-            :initform NIL
-            :accessor parent)
-   (%children :initarg :children
-              :initform ()
-              :accessor children)
-   ))
-
-;; A stupid simple means to assign one or more tags to a gobj.
-;; in a real implementation, this might point to some previously
-;; created table to make lookups for all gobjs with this tag extremely
-;; fast, etc.p
-(defclass tags (component)
-  ((%tags :initarg :tags
-          :initform NIL
-          :accessor tags)))
-#+END_SRC
-
-** Components you can author
+** Core Components (needs more examples as we make them)
+*** Transform
+*** Tags
+** User-level components specific to an individual game.
 #+BEGIN_SRC common-lisp
 (defclass hit-points (component)
   ((%hp :initarg :hp
@@ -66,130 +36,48 @@ in the scene tree DSL but they can be programmatically made too.
 
 
 * A scene tree DSL using that component system.
-Here is a possible view of the scene tree DSL. VERY ROUGH. Probably
-should be a macro expansion in order to do the code walking correctly.
+Here is a possible view of the scene tree DSL.
+
+In the DSL, it expected that all game objects and components on all
+game objects are referenceable in a forward manner.
+
+The name symbol of each gobj shall have < and > bracketing it. This
+is to allow them to be easly recognizable as gobj names, and to
+allow the macro transformer to use them as symbol names in the
+resultant expansion of the DSL into common lisp.
+
+NOTE: Keywords cannot be used as variables in LET.
 
 #+BEGIN_SRC common-lisp
-(scene ;; universe root
-
- (<player-ship>
+((<player-ship>
   ;; instance components
-  ((transform
-    :x 0 :y 0 :z 0
-    :sx 1 :sy 1 :sz 1
-    :xrot 0 :yrot 0 :zrot 0))
+  ((transform)
+   (hit-points :hp 100))
 
-  ;; subpiece of the ship
+  ;; additional subpiece of the ship in rest of list.
+
   (<turret>
-   ;; components
-   ((transform
-     :x 1 :y 2 :z 0
-     :sx 1 :sy 1 :sz 1
-     :xrot 0 :yrot 0 :zrot 0)
+   ((transform))
 
-    ;; a component which allows changing between two guns in that turret
-    (gun-manager
-     :guns (list <gun1> <gun2>)))
+   ;; a component which allows changing between two guns in that turret
+   (gun-manager
+    :guns (vector (get-component 'gun <gun1>)
+                  (get-component 'gun <gun2>)))
 
    ;; the 2 guns that the turrent can switch between
    (<gun1>
-    ((transform
-      :x 0 :y 0 :z 0
-      :sx 1 :sy 1 :sz 1
-      :xrot 0 :yrot 0 :zrot 0)
-     ;; a component describing the gun mechanics
-     (gun
-      :shots 10
-      :type :hardnose)))
+    ((transform))
+    ;; a component describing the gun mechanics
+    (gun
+     :shots 10
+     :type :beam))
 
    (<gun2>
-    ((transform
-      :x 0 :y 0 :z 0
-      :sx 1 :sy 1 :sz 1
-      :xrot 0 :yrot 0 :zrot 0)
-     (gun
-      :shots 10
-      :type :hardnose))))))
+    ((transform))
 
-
-;; possible expansion, or, an engine that accepts the DSL and does this
-;; at runtime, once. But, more likely a macro does this.
-(let* ((num-objs 4)
-       (objs (make-hash-table))
-       (obj-names `(<player-ship> <turret> <gun1> <gun2>)))
-  ;; First, create the empty game objects so I can have real
-  ;; references to them.
-  (loop :for name :in obj-names :do
-    (setf (gethash name objs) (make-instance 'gobj)))
-
-  ;; The universe root of the scene tree: DEFAULT OBJECT
-  (push (make-instance 'transform
-                       :gobj (gethash '<universe> objs)
-                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
-        (components (gethash '<universe> objs)))
-
-  ;; now, make all components for each object. The macro processor will
-  ;; have rewritten all names to GETHASH references. Each transform has a
-  ;; reference to the GOBJ it is a component of--used to walk the scene tree
-  ;; when you only have a gobj reference
-  ;;
-  ;; <player-ship>
-  (push (make-instance 'transform
-                       :gobj (gethash '<player-ship> objs)
-                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
-        (components (gethash '<player-ship> objs)))
-
-  ;; <turret>
-  (push (make-instance 'transform
-                       :gobj (gethash '<turret> objs)
-                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
-        (components (gethash '<turret> objs)))
-  (push (make-instance 'gun-manager
-                       :gobj (gethash '<turret> objs)
-                       :guns (list (gethash objs '<gun1>)
-                                   (gethash objs '<gun2>)))
-        (components (gethash '<turret> objs)))
-
-  ;; <gun1>
-  (push (make-instance 'transform
-                       :gobj (gethash '<gun1> objs)
-                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
-        (components (gethash '<gun1> objs)))
-  (push (make-instance 'gun
-                       :gobj (gethash '<gun1> objs)
-                       :shots 10 :type :hardnose)
-        (components (gethash '<gun1> objs)))
-
-  ;; <gun2>
-  (push (make-instance 'transform
-                       :gobj (gethash '<gun2> objs)
-                       :x 0 :y 0 :z 0 :xrot 0 :yrot 0 :zrot 0)
-        (components (gethash '<gun2> objs)))
-  (push (make-instance 'gun
-                       :gobj (gethash '<gun2> objs)
-                       :shots 10 :type :hardnose)
-        (components (gethash '<gun2> objs)))
-
-  ;; Then, wire together the scene tree through all known references and the
-  ;; transform component, which keeps the tree.
-  (add-child
-   ;; child
-   (get-component 'transform (gethash '<player-ship> objs))
-   ;; parent
-   (get-component 'transform (gethash '<universe> objs)))
-
-  (add-child (get-component 'transform (gethash '<turret> objs))
-             (get-component 'transform (gethash '<player-ship> objs)))
-
-  (add-child (get-component 'transform (gethash '<gun1> objs))
-             (get-component 'transform (gethash '<turret> objs)))
-
-  (add-child (get-component 'transform (gethash '<gun2> objs))
-             (get-component 'transform (gethash '<turret> objs)))
-
-  ;; and now return the scene tree as a values with the root noted:
-  (values objs '<universe>))
-
+    (gun
+     :shots 10
+     :type :missle)))))
 #+END_SRC
 
 * Extensible call graph for each component
