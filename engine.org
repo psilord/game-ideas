@@ -138,7 +138,7 @@ call that on all components, etc.
           (G NIL))
 
 
- ;; This is just like the above, but frun for game objects.
+ ;; This is just like the above, but run for game objects.
  (subflow game-object-flow
           (A (lambda (g &rest args)
                (if (game-object-status-p 'alive g)
@@ -148,7 +148,7 @@ call that on all components, etc.
           (B (lambda (g &rest args)
                (apply #'destroy-game-object g args)
                C))
-                                        ;l; again, figure this out.
+          ;; again, figure this out.
           (C NIL))
 
 
