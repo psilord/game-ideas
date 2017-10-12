@@ -105,11 +105,11 @@ call that on all components, etc.
                B))
 
           (B (lambda (c &rest args)
-               (apply #'update c args)
+               (apply #'physics-update c args)
                C))
 
           (C (lambda (c &rest args)
-               (apply #'physics-update c args)
+               (apply #'update c args)
                D))
 
           (D (lambda (c &rest args)
