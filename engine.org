@@ -86,6 +86,15 @@ all components. In this model, all components have the SAME method called
 upon them, and then we move down the state graph to the next method, and
 call that on all components, etc.
 
+The function (execute-flow 'ENTRY (flow 'frame-flow) game-state) will
+run ONE frame's worth of flow. This is the entire main loop of the
+game. This function just gets run over and over.
+
+EXECUTE-FLOW returns two values, the state that it was called with and
+the state that was returned. This forms a state transition that we
+can inspect. If the second state is NIL, then the flow has finished
+executing.
+
 #+BEGIN_SRC common-lisp
 (call-flow
  ;; Hrm. This is all single dispatch, is that good?
@@ -98,143 +107,217 @@ call that on all components, etc.
  ;; by returning the correct states, the executor will recurse forever
  ;; until something about a state transition picks a different path.
 
+ ;; NOTE: Each state has TWO functions, one that is run across all applicable
+ ;; instances, and the other run once by the executor to determine which next
+ ;; state to go to given the information gathered from the instance executions.
  (flow game-object-initialization-flow
-       (ENTRY
-        (lambda (i &rest args)
-          ;; Maybe not supplied to use, but internal to core.
-          (apply #'spawn-game-object i args)
-          EXIT/FLOW-FINISHED))
+       (flow-state ENTRY () ;; bindings in a let for the two functions.
+                   ;; This function is run for every instance
+                   (lambda (i &rest args)
+                     ;; a core function, not exposed to users.
+                     (apply #'spawn-game-object i args))
 
-       (EXIT/FLOW-FINISHED NIL))
+                   ;; After all instances have been processed, this
+                   ;; function is run once by the executor in order to
+                   ;; choose the next state. The let form contains
+                   ;; anything we need to store while running the
+                   ;; instance function which may determine the state
+                   ;; we go to.
+                   (lambda (game-state)
+                     EXIT/FLOW-FINISHED))
+
+       (flow-state EXIT/FLOW-FINISHED ()
+                   NIL))
 
  (flow component-initialization-flow
-       (ENTRY
-        (lambda (i &rest args)
-          (apply #'reinitialize-initialize i args)
-          EXIT/FLOW-FINISHED))
+       (flow-state ENTRY ()
+                   (lambda (i &rest args)
+                     (apply #'reinitialize-initialize i args))
 
-       (EXIT/FLOW-FINISHED NIL))
+                   (lambda (game-state)
+                     EXIT/FLOW-FINISHED))
+
+       (flow-state EXIT/FLOW-FINISHED ()
+                   NIL))
 
  (flow component-logic-flow
-       (ENTRY
-        (lambda (i &rest args)
-          (loop :while (must-update-physics game-state)
-                ;; may need to do more than one thing in here, like
-                ;; run the physics-update, then compute collisions,
-                ;; then call the collide functions, etc.
-                :do (apply #'physics-update i args))
-          GAME-LOGIC))
+       (flow-state ENTRY/PHYSICS-UPDATE ()
+                   (lambda (i &rest args)
+                     ;; this is the USER method they want to run at
+                     ;; physics speed.
+                     (apply #'physics-update i args))
 
-       ;; Game logic
-       (GAME-LOGIC
-        (lambda (i &rest args)
-          (apply #'update i args)
-          RENDER))
+                   (lambda (game-state)
+                     EXIT/PHYSICS))
 
-       ;; render phase
-       (RENDER
-        (lambda (i &rest args)
-          (apply #'render i args)
-          EXIT/FLOW-FINISHED))
+       (flow-state EXIT/PHYSICS ()
+                   NIL)
 
-       (EXIT/FLOW-FINISHED NIL))
+       (flow-state ENTRY/COLLISIONS ()
+                   (lambda (i &rest args)
+                     ;; I don't know how this is working yet.
+                     (apply #'perform-collide i args))
+
+                   (lambda (game-state)
+                     EXIT/COLLISIONS))
+
+       (flow-state EXIT/COLLISIONS ()
+                   NIL)
+
+       ;; Once looped physics/collisions are dealt with, we can do the
+       ;; rest of this flow properly.
+       (flow-state ENTRY/AFTER-PHYSICS ()
+                   (lambda (i &rest args)
+                     (apply #'update i args))
+
+                   (lambda (game-state)
+                     RENDER))
+
+       (flow-state RENDER ()
+                   (lambda (i &rest args)
+                     (apply #'render i args))
+                   (lambda (game-state)
+                     EXIT/FLOW-FINISHED))
+
+       (flow-state EXIT/FLOW-FINISHED ()
+                   NIL))
 
  (flow game-object-maintenance-flow
-       (ENTRY
-        (lambda (i &rest args)
-          (if (game-object-status-p 'alive i)
-              ;; nothing to do, just keep on trucking.
-              EXIT/FLOW-FINISHED
-              DISCARD)))
+       (flow-state ENTRY ()
+                   (lambda (i &rest args)
+                     (unless (game-object-status-p 'alive i)
+                       ;; This should mark all components as
+                       ;; dead and including the game-object.
+                       ;; NOT a user facing API.
+                       (apply #'destroy-game-object i args)))
 
-       (DISCARD
-        (lambda (i &rest args)
-          ;; Call user supplied function to destroy component if needed.
-          (apply #'destroy-game-object i args)
-          ;; Remove game object from references
-          ;; TODO
-          ;; Mark components as dead.
-          ;; TODO
-          EXIT/FLOW-FINISHED))
+                   (lambda (game-state)
+                     EXIT/FLOW-FINISHED))
 
-       (EXIT/FLOW-FIISHED NIL))
+       (flow-state EXIT/FLOW-FIISHED ()
+                   NIL))
 
  (flow component-maintenance-flow
-       (ENTRY
-        (lambda (i &rest args)
-          (if (component-status-p 'alive i)
-              ;; still alive at end of this frame
-              EXIT/FLOW-FINISHED
-              ;; dead, get rid of it.
-              DISCARD
-              )))
+       (flow-state ENTRY ()
+                   (lambda (i &rest args)
+                     (unless (component-status-p 'alive i)
+                       (apply #'destroy-component i args)))
 
-       ;; end game for the component, release it.
-       (DISCARD
-        (lambda (i &rest args)
-          (apply #'destroy-component i args)
-          EXIT/FLOW-FINISHED))
+                   (lambda (game-state)
+                     EXIT/FLOW-FIISHED))
 
-       (EXIT/FLOW-FINISHED NIL))
+       (floe-state EXIT/FLOW-FINISHED () NIL))
 
  (flow frame-flow
        ;; First spawn any game-objects (which may or may not be empty of
        ;; components, but were created LAST frame and put into a staging area.
-       (ENTRY
-        (lambda (game-state)
-          (execute-flow 'ENTRY
-                        (flow 'game-object-initialization-flow game-state)
-                        (game-object-init-db game-state))
-          INIT-COMPONENTS))
+       (flow-state ENTRY ()
+                   (lambda (game-state)
+                     (execute-flow 'ENTRY
+                                   (flow 'game-object-initialization-flow
+                                         game-state)
+                                   (game-object-init-db game-state)))
+
+                   (lambda (game-state)
+                     INIT-COMPONENTS))
 
        ;; Then initialize any components that need initializaing.
-       (INIT-COMPONENTS
-        (lambda (game-state)
-          (execute-flow 'ENTRY
-                        (flow 'component-initialization-flow game-state)
-                        (component-init-db game-state))
-          UPDATE-COMPONENTS))
+       (flow-state INIT-COMPONENTS ()
+                   (lambda (game-state)
+                     (execute-flow 'ENTRY
+                                   (flow 'component-initialization-flow
+                                         game-state)
+                                   (component-init-db game-state)))
+
+                   (lambda (game-state)
+                     UPDATE-COMPONENTS))
 
        ;; Then run the component logic for all the components
-       (UPDATE-COMPONENTS
-        (lambda (game-state)
-          (execute-flow 'ENTRY
-                        (flow 'component-logic-flow game-state)
-                        (component-db game-state))
-          GAME-OBJECT-MAINTENANCE))
+       (flow-state UPDATE-COMPONENTS ()
+                   (lambda (game-state)
+                     ;; First, we run the physics and collision
+                     ;; updates, maybe in a loop depending what is
+                     ;; required.
+                     (loop :with again = T
+                           :while again
+                           :do ;; First, run the User's physics
+                               ;; functions over all ordered
+                               ;; components.
+                               (execute-flow
+                                'ENTRY/PHYSICS-UPDATE
+                                (flow 'component-logic-flow game-state)
+                                (component-db game-state))
+
+                               ;; Then, update ALL transforms to
+                               ;; current local/model
+
+                               ;; TODO: maybe wrap in box:tick?
+
+                               ;; TODO: pass the right stuff to get
+                               ;; universe root.
+
+                               (do-nodes #'transform-node)
+
+                               ;; Then, run any collisions that may
+                               ;; have happened over ordered
+                               ;; components.
+
+                               ;; TODO, exactly figure out how to call
+                               ;; collisions with the right collidees
+                               ;; and such.
+                               (execute-flow
+                                'ENTRY/COLLISIONS
+                                (flow 'component-logic-flow game-state)
+                                (component-db game-state))
+
+                               ;; Check to see if we're done doing physics.
+                               (unless (physics-loop-required-p game-state)
+                                 (setf again NIL)))
+
+                     ;; Then, complete the logic for the components.
+                     (execute-flow 'ENTRY/AFTER-PHYSICS
+                                   (flow 'component-logic-flow game-state)
+                                   (component-db game-state)))
+
+                   (lambda (game-state)
+                     GAME-OBJECT-MAINTENANCE))
 
        ;; if game objects are marked destroeyd, then kill all components too.
-       (GAME-OBJECT-MAINTENANCE
-        (lambda (game-state)
-          (execute-flow 'ENTRY
-                        (flow 'game-object-maintenance-flow game-state)
-                        (game-object-db game-state))
-          CONTINUE/EXIT))
+       (flow-state GAME-OBJECT-MAINTENANCE ()
+                   (lambda (game-state)
+                     (execute-flow 'ENTRY
+                                   (flow 'game-object-maintenance-flow
+                                         game-state)
+                                   (game-object-db game-state)))
+                   (lambda (game-state)
+                     COMPONENT-MAINTENANCE))
 
-       (COMPONENT-MAINTENANCE
-        (lambda (game-state)
-          (execute-flow 'ENTRY
-                        (flow 'component-maintenance-flow game-state)
-                        (component-db game-state))
-          CONTINUE/EXIT))
+       ;; Then, any game objects that died, or other components
+       ;; previously marked as being destroyed get destroeyd.
+       (flow-state COMPONENT-MAINTENANCE ()
+                   (lambda (game-state)
+                     (execute-flow 'ENTRY
+                                   (flow 'component-maintenance-flow
+                                         game-state)
+                                   (component-db game-state)))
+                   (lambda (game-state)
+                     CONTINUE/EXIT))
 
-       ;; and see if we should keep going or not.
-       (CONTINUE/EXIT
-        (lambda (game-state)
-          (if (exitingp game-state)
-              EXIT/GAME-OVER
-              EXIT/FLOW-FINISHED)))
+       (flow-state CONTINUE/EXIT ()
+                   NIL ;; no flows to run!
+                   (lambda (game-state)
+                     (if (exitingp game-state)
+                         EXIT/GAME-OVER
+                         EXIT/DO-NEXT-FRAME)))
 
-       (EXIT/FLOW-FINISHED NIL)
+       (flow-state EXIT/DO-NEXT-FRAME ()
+                   NIL)
 
-       (EXIT/GAME-OVER NIL)))
+       (flow-state EXIT/GAME-OVER ()
+                   NIL)))
+
 #+END_SRC
 
-Then, we'd exceute the flow in a simple loop that simply
-calls (execute-flow 'ENTRY (flow 'frame-flow) game-state) and if
-the returned state is EXIT/FLOW-FINISHED, we know we can loop again
-and run another frame. If it is EXIT/GAME-OVER, then we did something
-to exit the game and tear everything down and exit.
 
 * An explicit component initialization description.
 Apply all of the call-graph methods to all components ordered
