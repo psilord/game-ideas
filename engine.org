@@ -1,4 +1,4 @@
-* A hybrid component system.
+* STEP 1: A hybrid component system.
 There are a set of predefined components to make your life easier.
 You can add new components simply by making a new defclass from component
 and adding in whatever you want.
@@ -35,7 +35,7 @@ in the scene tree DSL but they can be programmatically made too.
 #+END_SRC
 
 
-* A scene tree DSL using that component system.
+* STEP 2: A scene tree DSL using that component system.
 Here is a possible view of the scene tree DSL.
 
 In the DSL, it expected that all game objects and components on all
@@ -80,7 +80,7 @@ NOTE: Keywords cannot be used as variables in LET.
      :type :missle)))))
 #+END_SRC
 
-* Extensible call graph for each component
+* STEP 3: Extensible call graph for each component
 We define a MASTER graph of defmethods and transitions that are called on
 all components. In this model, all components have the SAME method called
 upon them, and then we move down the state graph to the next method, and
@@ -319,7 +319,7 @@ executing.
 #+END_SRC
 
 
-* An explicit component initialization description.
+* STEP 4: An explicit component initialization description.
 Apply all of the call-graph methods to all components ordered
 by type of component.
 
@@ -348,3 +348,54 @@ by type of component.
   (dag
    (T -> transform -> hitpoints -> unordered -> NIL))))
 #+END_SRC
+* core-state instance
+The core-state is an instance holding bookeeping information to
+enable the execution of the methods on the components and other places.
+"Game" state related to any particular game is NOT kept here.
+
+This is somewhat soft, noted in some places.
+
+** ALL game-objects intending to be (or are) inserted into the scene-tree
+*** HASH TABLE in slot game-object-view has TWO exact keys:
+'game-object-init-db
+'game-object-db
+
+The values of each are a list of actual GAME-OBJECT types.
+
+** ALL components added to any game-object
+*** HASH TABLE in slot component-view has TWO exact keys:
+'component-init-db
+'component-db
+
+The values of each are a list of actual COMPONENT types.
+
+** Scene tree
+*** In slot scene-tree there is a single instance of the root object
+Unknown whether to keep the initial scaffolding hash table....
+
+** Flow Call Graph
+*** HASH-TABLE in slot call-flows has N keys:
+This is an example key from the above step 3, there will be N like it:
+
+'game-object-initialization-flow
+
+The value of the above key is a FLOW-STATE hash table.
+**** FLOW-STATE HASH TABLE
+The FLOW-STATE hash table is keyed by FLOW-STATE name symbols.
+A flow-state value is a single instance of a specific FLOW-STATE object.
+
+** Flow Type Call Dependency Graph
+*** HASH TABLE in slot type-flows has N keys:
+In step 4's DSL which isn't defined yet, there may be a similar
+concept to flows. Or it might be a more traditional DAG specification.
+Can't implement this slot's code until step 4 DSL and semantics
+are completed.
+
+*** HASH TABLE in slot type-views has N keys:
+This is one example key, there will be many like it.
+All of these keys are exactly the defclass type names of components.
+
+'gun
+
+The value is a list of references of all gun typed component instances
+in either 'component-init-db or 'component-db above.
