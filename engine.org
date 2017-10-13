@@ -135,18 +135,8 @@ call that on all components, etc.
        (RENDER
         (lambda (i &rest args)
           (apply #'render i args)
-          CONTINUE/DISCARD))
+          EXIT/FLOW-FINISHED))
 
-       (CONTINUE/DISCARD
-        (lambda (i &rest args)
-          (if (component-status-p 'alive i)
-              ;; still alive at end of this frame
-              EXIT/FLOW-FINISHED
-              ;; dead, remove it from game at end of frame.
-              DISCARD
-              )))
-
-       ;; Driver comes back with ending state.
        (EXIT/FLOW-FINISHED NIL))
 
  (flow game-object-maintenance-flow
