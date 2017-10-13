@@ -88,100 +88,163 @@ call that on all components, etc.
 
 #+BEGIN_SRC common-lisp
 (call-flow
- ;; Hrm. This is all single dispatch on component, is that good?
-
- ;; This implies that each component (and game-object?) needs to be in
- ;; its own state.  Need to explore this and how it relates to
- ;; creating/destroying game objects as a whole. For example, when a
- ;; game-object is destroyed, does it mark all components as dead, and
- ;; the game object as dead? Then things get removed as needed?
+ ;; Hrm. This is all single dispatch, is that good?
 
  ;; NOTE: These state transitions *cannot* be implemented in a
- ;; recursive manner.
+ ;; recursive manner. Meaning there is an executor function that
+ ;; takes care of the transitions.
+ ;;
+ ;; NOTE: If the functions inside of the state machine internally recurse
+ ;; by returning the correct states, the executor will recurse forever
+ ;; until something about a state transition picks a different path.
 
- (subflow component-flow
-          (A (lambda (i &rest args)
-               (apply #'reinitialize-initialize i args)
-               B))
+ (flow game-object-initialization-flow
+       (ENTRY
+        (lambda (i &rest args)
+          ;; Maybe not supplied to use, but internal to core.
+          (apply #'spawn-game-object i args)
+          EXIT/FLOW-FINISHED))
 
-          ;; In here possibly loop until all physics updates are done.
-          (B (lambda (i &rest args)
-               (apply #'physics-update i args)
-               C))
+       (EXIT/FLOW-FINISHED NIL))
 
-          ;; Game logic
-          (C (lambda (i &rest args)
-               (apply #'update i args)
-               D))
+ (flow component-initialization-flow
+       (ENTRY
+        (lambda (i &rest args)
+          (apply #'reinitialize-initialize i args)
+          EXIT/FLOW-FINISHED))
 
-          ;; render phase
-          (D (lambda (i &rest args)
-               (apply #'render i args)
-               E))
+       (EXIT/FLOW-FINISHED NIL))
 
-          ;; what should happen to this component?
-          (E (lambda (i &rest args)
-               ;; This component state thing needs more thought, it is
-               ;; part of the core and not something a user should be
-               ;; able to want to use except though API calls to
-               ;; manage it (like creating a component or destroying
-               ;; one).
-               (if (component-status-p 'alive i)
-                   ;; still alive end of this frame, set up next frame.
-                   B
-                   ;; dead, remove it from game at end of frame.
-                   F
-                   )))
+ (flow component-logic-flow
+       (ENTRY
+        (lambda (i &rest args)
+          (loop :while (must-update-physics game-state)
+                ;; may need to do more than one thing in here, like
+                ;; run the physics-update, then compute collisions,
+                ;; then call the collide functions, etc.
+                :do (apply #'physics-update i args))
+          GAME-LOGIC))
 
-          ;; end game for the component, release it.
-          (F (lambda (i &rest args)
-               (apply #'destroy-component i args)
-               G))
+       ;; Game logic
+       (GAME-LOGIC
+        (lambda (i &rest args)
+          (apply #'update i args)
+          RENDER))
 
-          ;; What exactly does this mean for the component? free all references
-          ;; to it so it can be GCed?
-          (G NIL))
+       ;; render phase
+       (RENDER
+        (lambda (i &rest args)
+          (apply #'render i args)
+          CONTINUE/DISCARD))
 
+       (CONTINUE/DISCARD
+        (lambda (i &rest args)
+          (if (component-status-p 'alive i)
+              ;; still alive at end of this frame
+              EXIT/FLOW-FINISHED
+              ;; dead, remove it from game at end of frame.
+              DISCARD
+              )))
 
- ;; This is just like the above, but run for game objects.
- (subflow game-object-flow
-          (A (lambda (i &rest args)
-               (if (game-object-status-p 'alive i)
-                   ;; nothing to do, just keep on trucking.
-                   A
-                   B)))
-          (B (lambda (i &rest args)
-               (apply #'destroy-game-object i args)
-               C))
-          ;; again, figure this out.
-          (C NIL))
+       ;; Driver comes back with ending state.
+       (EXIT/FLOW-FINISHED NIL))
 
+ (flow game-object-maintenance-flow
+       (ENTRY
+        (lambda (i &rest args)
+          (if (game-object-status-p 'alive i)
+              ;; nothing to do, just keep on trucking.
+              EXIT/FLOW-FINISHED
+              DISCARD)))
 
- ;; The final flow which settles how the calls are actually run in
- ;; the above subflows. NOTE; needs more work, like where some
- ;; variables defined here arise.
- (flow executive-flow
-       ;; First we update all the components
-       (A (lambda (game-state)
-            (execute-flow (flow 'component-flow game-state)
-                          (component-db game-state))
-            B))
-       ;; then we deal with game-objects themselves.
-       (B (lambda (game-state)
-            (execute-flow (flow 'game-object-flow game-state)
-                          (game-object-db game-state))
-            C))
+       (DISCARD
+        (lambda (i &rest args)
+          ;; Call user supplied function to destroy component if needed.
+          (apply #'destroy-game-object i args)
+          ;; Remove game object from references
+          ;; TODO
+          ;; Mark components as dead.
+          ;; TODO
+          EXIT/FLOW-FINISHED))
+
+       (EXIT/FLOW-FIISHED NIL))
+
+ (flow component-maintenance-flow
+       (ENTRY
+        (lambda (i &rest args)
+          (if (component-status-p 'alive i)
+              ;; still alive at end of this frame
+              EXIT/FLOW-FINISHED
+              ;; dead, get rid of it.
+              DISCARD
+              )))
+
+       ;; end game for the component, release it.
+       (DISCARD
+        (lambda (i &rest args)
+          (apply #'destroy-component i args)
+          EXIT/FLOW-FINISHED))
+
+       (EXIT/FLOW-FINISHED NIL))
+
+ (flow frame-flow
+       ;; First spawn any game-objects (which may or may not be empty of
+       ;; components, but were created LAST frame and put into a staging area.
+       (ENTRY
+        (lambda (game-state)
+          (execute-flow 'ENTRY
+                        (flow 'game-object-initialization-flow game-state)
+                        (game-object-init-db game-state))
+          INIT-COMPONENTS))
+
+       ;; Then initialize any components that need initializaing.
+       (INIT-COMPONENTS
+        (lambda (game-state)
+          (execute-flow 'ENTRY
+                        (flow 'component-initialization-flow game-state)
+                        (component-init-db game-state))
+          UPDATE-COMPONENTS))
+
+       ;; Then run the component logic for all the components
+       (UPDATE-COMPONENTS
+        (lambda (game-state)
+          (execute-flow 'ENTRY
+                        (flow 'component-logic-flow game-state)
+                        (component-db game-state))
+          GAME-OBJECT-MAINTENANCE))
+
+       ;; if game objects are marked destroeyd, then kill all components too.
+       (GAME-OBJECT-MAINTENANCE
+        (lambda (game-state)
+          (execute-flow 'ENTRY
+                        (flow 'game-object-maintenance-flow game-state)
+                        (game-object-db game-state))
+          CONTINUE/EXIT))
+
+       (COMPONENT-MAINTENANCE
+        (lambda (game-state)
+          (execute-flow 'ENTRY
+                        (flow 'component-maintenance-flow game-state)
+                        (component-db game-state))
+          CONTINUE/EXIT))
+
        ;; and see if we should keep going or not.
-       (C (lambda (game-state)
-            (if (exitingp game-state)
-                D
-                A)))
-       ;; Probably means game is over. Might need a new state to call the
-       ;; cleanup functions for the entire game, if any, probably hidden in
-       ;; core.
-       (D NIL)))
+       (CONTINUE/EXIT
+        (lambda (game-state)
+          (if (exitingp game-state)
+              EXIT/GAME-OVER
+              EXIT/FLOW-FINISHED)))
 
+       (EXIT/FLOW-FINISHED NIL)
+
+       (EXIT/GAME-OVER NIL)))
 #+END_SRC
+
+Then, we'd exceute the flow in a simple loop that simply
+calls (execute-flow 'ENTRY (flow 'frame-flow) game-state) and if
+the returned state is EXIT/FLOW-FINISHED, we know we can loop again
+and run another frame. If it is EXIT/GAME-OVER, then we did something
+to exit the game and tear everything down and exit.
 
 * An explicit component initialization description.
 Apply all of the call-graph methods to all components ordered
