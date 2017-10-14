@@ -408,7 +408,7 @@ A DAG in a type-flow is named with a symbol.
 
 It contains zero to N forms, called a dependency form:
 
-([T ->]? symbol symbol* -> symbol symbol* [-> symbol symbol*]+ NIL?).
+([T ->]? [symbol symbol* [->]?]* NIL?).
 
 Each dependency form represents a portion of the type dependency DAG
 under that dag definition. There is an implicit start node called T
