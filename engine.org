@@ -81,35 +81,102 @@ NOTE: Keywords cannot be used as variables in LET.
 #+END_SRC
 
 * STEP 3: Extensible call graph for each component
-We define a MASTER graph of defmethods and transitions that are called on
-all components. In this model, all components have the SAME method called
-upon them, and then we move down the state graph to the next method, and
-call that on all components, etc.
+We define a graph called a CALL-FLOW.
 
-The function (execute-flow 'ENTRY (flow 'frame-flow) game-state) will
-run ONE frame's worth of flow. This is the entire main loop of the
-game. This function just gets run over and over.
+It defines a function in the form of a higher order finite state
+machine (HOFSM) that will subsequently be mapped over a directed
+acyclic graph of type dependencies such that the instances processed
+by the HOFSM will be processed in a valid topological sort of the type
+dependency graph.
 
-EXECUTE-FLOW returns two values, the state that it was called with and
-the state that was returned. This forms a state transition that we
-can inspect. If the second state is NIL, then the flow has finished
-executing.
+Before we get to the definition of the CALL-FLOW, which is
+ultimately a state machine with functions that indicate transitions
+to new states, we define the function that executes the CALL-FLOW.
 
+** Function EXECUTE-FLOW
+The purpose of EXECUTE-FLOW is to map the states of the CALL-FLOW over
+the component instances and other things in such a manner as to honor
+a type-dependency graph.
+
+EXECUTE-FLOW will execute a state and then determine if the state
+returned by the transition function can also be executed. If it
+can, it immediately executes it, and continues in this
+fashion. When it comes to a state that indicates the end of a
+trajectory in the HOFSM, it return the last state from when it
+came, and the state which resulted in the returning of
+EXECUTE-FLOW.
+
+An arbitrary number of states may be executed by EXECUTE-FLOW and
+in fact EXCEUTE-FLOW might not ever return if the HOFSM ends up in
+an infinite loop.
+
+*** EXECUTE-FLOW usage
+The function (execute-flow 'ENTRY (flow 'frame-flow) core-state)
+will run ONE frame's worth of flow. This is the entire main loop
+of the game run over all components, game objects and other
+appropriate things. Upon return of the top level HOFSM which
+executes a frame, you can determine if the game should do
+another frame or shutdown.
+
+** Definition of CALL-FLOW
+A CALL-FLOW contains a collection of FLOW definitions.
+
+#+BEGIN_SRC common-lisp
+(call-flow
+ flow0
+
+ flowN)
+#+END_SRC
+
+A FLOW is named contains a set of FLOW-STATE definitions.
+#+BEGIN_SRC common-lisp
+(flow name
+      flow-state0
+
+      flow-stateN)
+#+END_SRC
+
+A FLOW-STATE is a single state in the encompassing FLOW that
+contains three things: a set of bindings that are available over
+two functions, and two associated functions.
+
+The first function is mapped over all applicable instances and its
+return value is ignored.
+
+The second function is a state transition function that is called
+just once after the first function has been mapped over the
+instances, it tells the EXECUTE-FLOW driver function what is the next
+state that must be executed.
+
+The bindings are used to transfer information between all of the
+first function applications to the once applied state transition
+function so the state transition function can make the right
+choice about which next state to choose.
+
+Here is an example of a FLOW-STATE. This will call the
+PHYSICS-UPDATE method on all instance associated with this
+application of the FLOW-STATE (not specified here).
+
+#+BEGIN_SRC common-lisp
+(flow-state ENTRY/PHYSICS-UPDATE ()
+            (lambda (i &rest args)
+              ;; this is the USER method they want to run at
+              ;; physics speed.
+              (apply #'physics-update i args))
+
+            (lambda (core-state)
+              EXIT/PHYSICS))
+#+END_SRC
+
+** Full Example of CALL-FLOW to run one frame in a main game loop
 #+BEGIN_SRC common-lisp
 (call-flow
  ;; Hrm. This is all single dispatch, is that good?
 
- ;; NOTE: These state transitions *cannot* be implemented in a
- ;; recursive manner. Meaning there is an executor function that
- ;; takes care of the transitions.
- ;;
  ;; NOTE: If the functions inside of the state machine internally recurse
  ;; by returning the correct states, the executor will recurse forever
  ;; until something about a state transition picks a different path.
 
- ;; NOTE: Each state has TWO functions, one that is run across all applicable
- ;; instances, and the other run once by the executor to determine which next
- ;; state to go to given the information gathered from the instance executions.
  (flow game-object-initialization-flow
        (flow-state ENTRY () ;; bindings in a let for the two functions.
                    ;; This function is run for every instance
@@ -123,7 +190,7 @@ executing.
                    ;; anything we need to store while running the
                    ;; instance function which may determine the state
                    ;; we go to.
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FINISHED ()
@@ -134,7 +201,7 @@ executing.
                    (lambda (i &rest args)
                      (apply #'reinitialize-initialize i args))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FINISHED ()
@@ -147,7 +214,7 @@ executing.
                      ;; physics speed.
                      (apply #'physics-update i args))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/PHYSICS))
 
        (flow-state EXIT/PHYSICS ()
@@ -158,7 +225,7 @@ executing.
                      ;; I don't know how this is working yet.
                      (apply #'perform-collide i args))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/COLLISIONS))
 
        (flow-state EXIT/COLLISIONS ()
@@ -170,13 +237,13 @@ executing.
                    (lambda (i &rest args)
                      (apply #'update i args))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      RENDER))
 
        (flow-state RENDER ()
                    (lambda (i &rest args)
                      (apply #'render i args))
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FINISHED ()
@@ -191,7 +258,7 @@ executing.
                        ;; NOT a user facing API.
                        (apply #'destroy-game-object i args)))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FIISHED ()
@@ -203,7 +270,7 @@ executing.
                      (unless (component-status-p 'alive i)
                        (apply #'destroy-component i args)))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      EXIT/FLOW-FIISHED))
 
        (floe-state EXIT/FLOW-FINISHED () NIL))
@@ -212,29 +279,29 @@ executing.
        ;; First spawn any game-objects (which may or may not be empty of
        ;; components, but were created LAST frame and put into a staging area.
        (flow-state ENTRY ()
-                   (lambda (game-state)
+                   (lambda (core-state)
                      (execute-flow 'ENTRY
                                    (flow 'game-object-initialization-flow
-                                         game-state)
-                                   (game-object-init-db game-state)))
+                                         core-state)
+                                   (game-object-init-db core-state)))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      INIT-COMPONENTS))
 
        ;; Then initialize any components that need initializaing.
        (flow-state INIT-COMPONENTS ()
-                   (lambda (game-state)
+                   (lambda (core-state)
                      (execute-flow 'ENTRY
                                    (flow 'component-initialization-flow
-                                         game-state)
-                                   (component-init-db game-state)))
+                                         core-state)
+                                   (component-init-db core-state)))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      UPDATE-COMPONENTS))
 
        ;; Then run the component logic for all the components
        (flow-state UPDATE-COMPONENTS ()
-                   (lambda (game-state)
+                   (lambda (core-state)
                      ;; First, we run the physics and collision
                      ;; updates, maybe in a loop depending what is
                      ;; required.
@@ -245,8 +312,8 @@ executing.
                                ;; components.
                                (execute-flow
                                 'ENTRY/PHYSICS-UPDATE
-                                (flow 'component-logic-flow game-state)
-                                (component-db game-state))
+                                (flow 'component-logic-flow core-state)
+                                (component-db core-state))
 
                                ;; Then, update ALL transforms to
                                ;; current local/model
@@ -267,46 +334,46 @@ executing.
                                ;; and such.
                                (execute-flow
                                 'ENTRY/COLLISIONS
-                                (flow 'component-logic-flow game-state)
-                                (component-db game-state))
+                                (flow 'component-logic-flow core-state)
+                                (component-db core-state))
 
                                ;; Check to see if we're done doing physics.
-                               (unless (physics-loop-required-p game-state)
+                               (unless (physics-loop-required-p core-state)
                                  (setf again NIL)))
 
                      ;; Then, complete the logic for the components.
                      (execute-flow 'ENTRY/AFTER-PHYSICS
-                                   (flow 'component-logic-flow game-state)
-                                   (component-db game-state)))
+                                   (flow 'component-logic-flow core-state)
+                                   (component-db core-state)))
 
-                   (lambda (game-state)
+                   (lambda (core-state)
                      GAME-OBJECT-MAINTENANCE))
 
        ;; if game objects are marked destroeyd, then kill all components too.
        (flow-state GAME-OBJECT-MAINTENANCE ()
-                   (lambda (game-state)
+                   (lambda (core-state)
                      (execute-flow 'ENTRY
                                    (flow 'game-object-maintenance-flow
-                                         game-state)
-                                   (game-object-db game-state)))
-                   (lambda (game-state)
+                                         core-state)
+                                   (game-object-db core-state)))
+                   (lambda (core-state)
                      COMPONENT-MAINTENANCE))
 
        ;; Then, any game objects that died, or other components
        ;; previously marked as being destroyed get destroeyd.
        (flow-state COMPONENT-MAINTENANCE ()
-                   (lambda (game-state)
+                   (lambda (core-state)
                      (execute-flow 'ENTRY
                                    (flow 'component-maintenance-flow
-                                         game-state)
-                                   (component-db game-state)))
-                   (lambda (game-state)
+                                         core-state)
+                                   (component-db core-state)))
+                   (lambda (core-state)
                      CONTINUE/EXIT))
 
        (flow-state CONTINUE/EXIT ()
                    NIL ;; no flows to run!
-                   (lambda (game-state)
-                     (if (exitingp game-state)
+                   (lambda (core-state)
+                     (if (exitingp core-state)
                          EXIT/GAME-OVER
                          EXIT/DO-NEXT-FRAME)))
 
@@ -318,35 +385,119 @@ executing.
 
 #+END_SRC
 
-
 * STEP 4: An explicit component initialization description.
 Apply all of the call-graph methods to all components ordered
 by type of component.
+** Definition of TYPE-FLOW
+A type-flow simply holds a pile of dag definitions.
+
+LIMITATION: As of now, all type-flows are not namespaced, so it is
+as if their union of dags exist, so, it is difficult to deal with name
+collisions.
+
+
+The top-level definition is
+#+BEGIN_SRC common-lisp
+(type-flow
+ dag0
+
+ dagN)
+#+END_SRC
+** Definition of DAG in TYPE-FLOW
+A DAG in a type-flow is named with a symbol.
+
+It contains zero to N forms, called a dependency form:
+
+([T ->]? symbol symbol* -> symbol symbol* [-> symbol symbol*]+ NIL?).
+
+Each dependency form represents a portion of the type dependency DAG
+under that dag definition. There is an implicit start node called T
+that has as its children the symbol before the FIRST -> in each
+dependency form. There is an implicit end node called NIL which has
+an edge from all symbol after the last -> to it. You may use T and
+NIL in the DAG, but they can only be in the legal places.
+
+Here is an example of the DAG form:
+
+#+begin_SRC common-lisp
+(dag name
+     (A -> B C D -> E F -> G)
+     (C -> Z)
+     (X -> C)
+     ;; and more dependency forms if you want.
+     )
+#+END_SRC
+
+*** Dependency Form Semantics
+**** Symbol position semantics
+Each symbol (but not ->) position in a dependency form,
+(example above: A B C D X Z) can contain:
+***** SYMBOL
+This is a component class type name, like =transform=.
+
+***** A (SPLICE SYMBOL)
+This means to splice that in scope dag name into the dag right there.
+It will perform a cross product of edges into and out of the splice
+as expected.
+
+***** (SYNC SYMBOL)
+This defines a fake node in the DAG (not in the same namespace
+as the actual class types) that is used as a sync node in the
+DAG. A sync node is just a node the flow can go through without
+having to be a real type.
+
+***** (G-SYNC symbol)
+This is a *globally* defined synch node for ALL dags! Use
+carefully!
+
+***** (IMPORT symbol path)
+This means to import the named dag (and all dependencies
+including other imports) from the file specified and splice the dag
+
+**** Meaning of ->
+
+
+*** Nesting of DAG forms
+dag forms can nest, in which case the names of the dags are scoped
+properly. SYNCH nodes exist only in the dag they are used in.
+** Example TYPE-FLOW
 
 #+BEGIN_SRC common-lisp
-(flow-graphs
+(type-flow
 
- ;; This flow graph states how to order the components when the call-flow
- ;; methods flow graph is applied to them.
- (component-method-flow
-  ;; T is the root of the DAG and all paths go to NIL, the _last_ leaf
-  ;; that is in the DAG. The last transition can be explicit, or
-  ;; implicitly defined.
+ ;; dag unordered-types is required.
+ ;; It will be filled at runtime with the names of types not specified here.
+ ;; They will ahve flow-states applied in random order.
+ (dag unknown-types
+      (T -> NIL))
 
-  ;; Subdags are graphs that are spliced into the dag graph whereever they are
-  ;; used in the dag.
-  (subdags
-   (unordered ()))
+ ;; dag core-types is required
+ ;; this contains all core component type names
+ (dag core-types
+      (T ->
+         transform
+         ))
 
-  ;; Only have two components will make more for better example.
-  ;; But, this says, that all transform components must have their methods
-  ;; called on them BEFORE all hit-point components.
-  ;;
-  ;; NOTE: During generation of the code to apply this, any type discovered
-  ;; that is not in the below graph automatically gets added to 'unordered'
-  ;; so the ordering between those types is undefined.
-  (dag
-   (T -> transform -> hitpoints -> unordered -> NIL))))
+ ;; dag user-types is required. In here goes the huge list of types the user
+ ;; creates for components.
+ (dag ordered-types
+      ((import user-types "some/file/in/examples")))
+
+ ;; dag all-types is required
+ ;; This is the toplevel dag that encodes all type dependency information for
+ ;; the order of application of flow-states.
+ (dag all-ordered-types
+      (T ->
+         ;; enforce that all unknown typed components get executed first.
+         ;; Why? Beats me, arbitrary decision.
+         (splice unknown-types) ->
+         ;; But ordered types should happen before core-types
+         (splice ordered-types) ->
+         ;; because this holds the results of all changes the users codes do.
+         (splice core-types) ->
+         NIL
+         )))
+
 #+END_SRC
 * core-state instance
 The core-state is an instance holding bookeeping information to
