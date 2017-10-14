@@ -435,7 +435,7 @@ Each symbol (but not ->) position in a dependency form,
 ***** SYMBOL
 This is a component class type name, like =transform=.
 
-***** A (SPLICE SYMBOL)
+***** (SPLICE SYMBOL)
 This means to splice that in scope dag name into the dag right there.
 It will perform a cross product of edges into and out of the splice
 as expected.
