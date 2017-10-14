@@ -93,6 +93,12 @@ Before we get to the definition of the CALL-FLOW, which is
 ultimately a state machine with functions that indicate transitions
 to new states, we define the function that executes the CALL-FLOW.
 
+TODO: Consider maybe add a third function to select the instances we
+want to work with, this way we just pass core-state to each flow
+state and the selector function figures out what instances we need,
+and then the actor function runs across them in type-dag order, then
+the final function returns the next state.
+
 ** Function EXECUTE-FLOW
 The purpose of EXECUTE-FLOW is to map the states of the CALL-FLOW over
 the component instances and other things in such a manner as to honor
