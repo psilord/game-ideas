@@ -459,8 +459,10 @@ TODO
 
 
 *** Nesting of DAG forms
-dag forms can nest, in which case the names of the dags are scoped
-properly. SYNCH nodes exist only in the dag they are used in.
+dag forms can nest, in which case the names of the dags are
+scoped properly. SYNCH nodes exist only in the dag they are used
+in.  If a SYNCH node in a dag is spliced multiple times, each
+synch node is different and local only to that splice.
 ** Example TYPE-FLOW
 
 #+BEGIN_SRC common-lisp
