@@ -157,7 +157,10 @@ A FLOW-STATE is a single state in the encompassing FLOW that
 contains three things: a set of bindings that are available over
 two functions, and two associated functions.
 
-THe first function selects the instances to be worked on.
+The first function selects the instances to be worked on. The
+return value can be: a single instance of something, a list of
+instances, a single hash table of something, a list of hash tables,
+or a list of instances and hash tables.
 
 The second function is mapped over all applicable instances and its
 return value is ignored.
@@ -178,10 +181,8 @@ application of the FLOW-STATE (not specified here).
 
 #+BEGIN_SRC common-lisp
 (flow-state ENTRY/PHYSICS-UPDATE ()
-            ;; Driver calls this once to get set of instances this
-            ;; state works on. Returns a hash table, or a list of hash
-            ;; tables, which are worked on in the order from left to
-            ;; right.
+            ;; Driver calls this once to get set of instances to run
+            ;; the second function across.
             (lambda (core-state)
               (components-db core-state))
 
