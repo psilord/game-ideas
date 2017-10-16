@@ -200,7 +200,8 @@ application of the FLOW-STATE (not specified here).
 ** Full Example of CALL-FLOW to run one frame in a main game loop
 #+BEGIN_SRC common-lisp
 (call-flow
- ;; Hrm. This is all single dispatch, is that good?
+ ;; Hrm. This is all single dispatch, is that good? Is there more
+ ;; opportunity for CL's strengths in here?
 
  ;; NOTE: If the functions inside of the state machine internally recurse
  ;; by returning the correct states, the executor will recurse forever
@@ -208,10 +209,14 @@ application of the FLOW-STATE (not specified here).
 
  (flow game-object-initialization-flow
        (flow-state ENTRY () ;; bindings in a let for the two functions.
+                   ;; Select what I want to work on.
+                   (lambda (core-state)
+                     (game-objects-initialize-db core-state))
+
                    ;; This function is run for every instance
-                   (lambda (i &rest args)
+                   (lambda (inst &rest args)
                      ;; a core function, not exposed to users.
-                     (apply #'spawn-game-object i args))
+                     (apply #'spawn-game-object inst args))
 
                    ;; After all instances have been processed, this
                    ;; function is run once by the executor in order to
@@ -227,8 +232,12 @@ application of the FLOW-STATE (not specified here).
 
  (flow component-initialization-flow
        (flow-state ENTRY ()
-                   (lambda (i &rest args)
-                     (apply #'reinitialize-initialize i args))
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
+                     (apply #'reinitialize-initialize inst args))
 
                    (lambda (core-state)
                      EXIT/FLOW-FINISHED))
@@ -238,10 +247,14 @@ application of the FLOW-STATE (not specified here).
 
  (flow component-logic-flow
        (flow-state ENTRY/PHYSICS-UPDATE ()
-                   (lambda (i &rest args)
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
                      ;; this is the USER method they want to run at
                      ;; physics speed.
-                     (apply #'physics-update i args))
+                     (apply #'physics-update inst args))
 
                    (lambda (core-state)
                      EXIT/PHYSICS))
@@ -250,9 +263,13 @@ application of the FLOW-STATE (not specified here).
                    NIL)
 
        (flow-state ENTRY/COLLISIONS ()
-                   (lambda (i &rest args)
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
                      ;; I don't know how this is working yet.
-                     (apply #'perform-collide i args))
+                     (apply #'perform-collide inst args))
 
                    (lambda (core-state)
                      EXIT/COLLISIONS))
@@ -263,15 +280,23 @@ application of the FLOW-STATE (not specified here).
        ;; Once looped physics/collisions are dealt with, we can do the
        ;; rest of this flow properly.
        (flow-state ENTRY/AFTER-PHYSICS ()
-                   (lambda (i &rest args)
-                     (apply #'update i args))
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
+                     (apply #'update inst args))
 
                    (lambda (core-state)
                      RENDER))
 
        (flow-state RENDER ()
-                   (lambda (i &rest args)
-                     (apply #'render i args))
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
+                     (apply #'render inst args))
                    (lambda (core-state)
                      EXIT/FLOW-FINISHED))
 
@@ -280,12 +305,15 @@ application of the FLOW-STATE (not specified here).
 
  (flow game-object-maintenance-flow
        (flow-state ENTRY ()
-                   (lambda (i &rest args)
-                     (unless (game-object-status-p 'alive i)
+                   (lambda (core-state)
+                     (game-objects-db core-state))
+
+                   (lambda (inst &rest args)
+                     (unless (game-object-status-p 'alive inst)
                        ;; This should mark all components as
                        ;; dead and including the game-object.
                        ;; NOT a user facing API.
-                       (apply #'destroy-game-object i args)))
+                       (apply #'destroy-game-object inst args)))
 
                    (lambda (core-state)
                      EXIT/FLOW-FINISHED))
@@ -295,9 +323,13 @@ application of the FLOW-STATE (not specified here).
 
  (flow component-maintenance-flow
        (flow-state ENTRY ()
-                   (lambda (i &rest args)
-                     (unless (component-status-p 'alive i)
-                       (apply #'destroy-component i args)))
+                   (lambda (core-state)
+                     ;; Fix to use the type-flow structures.
+                     (components-db core-state))
+
+                   (lambda (inst &rest args)
+                     (unless (component-status-p 'alive inst)
+                       (apply #'destroy-component inst args)))
 
                    (lambda (core-state)
                      EXIT/FLOW-FIISHED))
@@ -309,10 +341,12 @@ application of the FLOW-STATE (not specified here).
        ;; components, but were created LAST frame and put into a staging area.
        (flow-state ENTRY ()
                    (lambda (core-state)
+                     core-state)
+
+                   (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'game-object-initialization-flow
-                                         core-state)
-                                   (game-object-init-db core-state)))
+                                   (flow 'game-object-initialization-flow inst)
+                                   (game-object-init-db inst)))
 
                    (lambda (core-state)
                      INIT-COMPONENTS))
@@ -320,10 +354,12 @@ application of the FLOW-STATE (not specified here).
        ;; Then initialize any components that need initializaing.
        (flow-state INIT-COMPONENTS ()
                    (lambda (core-state)
+                     core-state)
+
+                   (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'component-initialization-flow
-                                         core-state)
-                                   (component-init-db core-state)))
+                                   (flow 'component-initialization-flow inst)
+                                   (component-init-db inst)))
 
                    (lambda (core-state)
                      UPDATE-COMPONENTS))
@@ -331,6 +367,9 @@ application of the FLOW-STATE (not specified here).
        ;; Then run the component logic for all the components
        (flow-state UPDATE-COMPONENTS ()
                    (lambda (core-state)
+                     core-state)
+
+                   (lambda (inst)
                      ;; First, we run the physics and collision
                      ;; updates, maybe in a loop depending what is
                      ;; required.
@@ -341,8 +380,9 @@ application of the FLOW-STATE (not specified here).
                                ;; components.
                                (execute-flow
                                 'ENTRY/PHYSICS-UPDATE
-                                (flow 'component-logic-flow core-state)
-                                (component-db core-state))
+                                (flow 'component-logic-flow inst)
+                                ;; Fix to use type-flow
+                                (component-db inst))
 
                                ;; Then, update ALL transforms to
                                ;; current local/model
@@ -363,11 +403,12 @@ application of the FLOW-STATE (not specified here).
                                ;; and such.
                                (execute-flow
                                 'ENTRY/COLLISIONS
-                                (flow 'component-logic-flow core-state)
-                                (component-db core-state))
+                                (flow 'component-logic-flow inst)
+                                ;; Fix to use type-flow
+                                (component-db inst))
 
                                ;; Check to see if we're done doing physics.
-                               (unless (physics-loop-required-p core-state)
+                               (unless (physics-loop-required-p inst)
                                  (setf again NIL)))
 
                      ;; Then, complete the logic for the components.
@@ -381,10 +422,12 @@ application of the FLOW-STATE (not specified here).
        ;; if game objects are marked destroeyd, then kill all components too.
        (flow-state GAME-OBJECT-MAINTENANCE ()
                    (lambda (core-state)
+                     core-state)
+
+                   (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'game-object-maintenance-flow
-                                         core-state)
-                                   (game-object-db core-state)))
+                                   (flow 'game-object-maintenance-flow inst)
+                                   (game-object-db inst)))
                    (lambda (core-state)
                      COMPONENT-MAINTENANCE))
 
@@ -392,17 +435,23 @@ application of the FLOW-STATE (not specified here).
        ;; previously marked as being destroyed get destroeyd.
        (flow-state COMPONENT-MAINTENANCE ()
                    (lambda (core-state)
+                     core-state)
+
+                   (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'component-maintenance-flow
-                                         core-state)
-                                   (component-db core-state)))
+                                   (flow 'component-maintenance-flow inst)
+                                   (component-db inst)))
                    (lambda (core-state)
                      CONTINUE/EXIT))
 
        (flow-state CONTINUE/EXIT ()
-                   NIL ;; no flows to run!
                    (lambda (core-state)
-                     (if (exitingp core-state)
+                     core-state)
+
+                   NIL ;; no flows to run!
+
+                   (lambda (inst)
+                     (if (exitingp inst)
                          EXIT/GAME-OVER
                          EXIT/DO-NEXT-FRAME)))
 
