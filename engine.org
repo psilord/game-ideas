@@ -11,16 +11,27 @@ in the scene tree DSL but they can be programmatically made too.
 #+BEGIN_SRC common-lisp
 (defclass component ()
   ;; A reference to the gobj container holding this component.
-  ((%game-object :initarg :game-object
+  ((%state :initarg :state
+           :accessor state)
+   (%game-object :initarg :game-object
                  :initform NIL
                  :accessor game-object)))
 
 (defclass gobj ()
   ((%id :initarg :id
         :accessor id)
+   (%state :initarg :state ;; one of: :initialize, :active, :destroy
+           :accessor state
+           :initform :initialize)
+   ;; Keyed by instance, value is reference
    (%components :initarg :components
-                :initform NIL
-                :accessor components)))
+                :initform (make-hash-table)
+                :accessor components)
+   ;; Keyed by class-name of the class-of the instance,
+   ;; value is a list of instances of that type.
+   (%components-by-type :initarg :components-by-type
+                        :accessor components-by-type
+                        :initform (make-hash-table)
 #+END_SRC
 
 ** Core Components (needs more examples as we make them)
