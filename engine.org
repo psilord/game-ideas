@@ -179,7 +179,9 @@ application of the FLOW-STATE (not specified here).
 #+BEGIN_SRC common-lisp
 (flow-state ENTRY/PHYSICS-UPDATE ()
             ;; Driver calls this once to get set of instances this
-            ;; state works on.
+            ;; state works on. Returns a hash table, or a list of hash
+            ;; tables, which are worked on in the order from left to
+            ;; right.
             (lambda (core-state)
               (components-db core-state))
 
