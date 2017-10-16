@@ -157,10 +157,12 @@ A FLOW-STATE is a single state in the encompassing FLOW that
 contains three things: a set of bindings that are available over
 two functions, and two associated functions.
 
-The first function is mapped over all applicable instances and its
+THe first function selects the instances to be worked on.
+
+The second function is mapped over all applicable instances and its
 return value is ignored.
 
-The second function is a state transition function that is called
+The third function is a state transition function that is called
 just once after the first function has been mapped over the
 instances, it tells the EXECUTE-FLOW driver function what is the next
 state that must be executed.
