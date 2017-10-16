@@ -176,11 +176,18 @@ application of the FLOW-STATE (not specified here).
 
 #+BEGIN_SRC common-lisp
 (flow-state ENTRY/PHYSICS-UPDATE ()
+            ;; Driver calls this once to get set of instances this
+            ;; state works on.
+            (lambda (core-state)
+              (components-db core-state))
+
+            ;; Driver calls this once on ALL instances selected by
+            ;; the first function.
             (lambda (i &rest args)
-              ;; this is the USER method they want to run at
-              ;; physics speed.
+              ;; Call User defined method.
               (apply #'physics-update i args))
 
+            ;; Driver calls this once to get next state to go to from here.
             (lambda (core-state)
               EXIT/PHYSICS))
 #+END_SRC
