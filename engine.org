@@ -639,13 +639,13 @@ slower.
 So, for now, I'll continue to use hashes, since the vast majority
 of frames we're simply maphashing over them.
 
- If even that becomes too slow, then I suspect we can store them
-in an array of arrays where the first index of each stored array
-is an end index. When we add something into the array, we
-increment aref 0, and when we remove we REPLACE the hole closed
-again and decrement index 0. In this model, the reference to the
-object itself contains a slot which holds the index and reference
-to the array it is contained in for easy lookup and removal.
+If even that becomes too slow, then I suspect we can store them in
+an array of arrays where the first index of each stored array is
+an end index. When we add something into the array, we increment
+aref 0, and when we remove we REPLACE the hole closed again and
+decrement index 0. In this model, the reference to the object
+itself contains a slot which holds the index and reference to the
+array it is contained in for easy lookup and removal.
 
-Then, the only arrays are those of the class-names which we need to
-implement the type dependency graph.
+Then, the only hashes are those keyed by class-names which we need
+to implement the type dependency graph.
