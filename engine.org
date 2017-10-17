@@ -491,7 +491,7 @@ NIL in the DAG, but they can only be in the legal places.
 
 Here is an example of the DAG form:
 
-#+begin_SRC common-lisp
+#+begi1n_SRC common-lisp
 (dag name
      (A -> B C D -> E F -> G)
      (C -> Z)
@@ -625,3 +625,27 @@ All of these keys are exactly the defclass type names of components.
 
 The value is a list of references of all gun typed component instances
 in either 'component-init-db or 'component-db above.
+
+** Core State Internals
+Accessing a vector is far faster than a hash table, by definition.
+But accessing a hash table by ibject reference is pretty useful.
+
+In experiments with SBCL 1.4.0, it is ~58 times faster to access
+an array element than a hash table value with an integer key.
+
+HOWEVER, iterating a hash table with maphash was only about 4 times
+slower.
+
+So, for now, I'll continue to use hashes, since the vast majority
+of frames we're simply maphashing over them.
+
+ If even that becomes too slow, then I suspect we can store them
+in an array of arrays where the first index of each stored array
+is an end index. When we add something into the array, we
+increment aref 0, and when we remove we REPLACE the hole closed
+again and decrement index 0. In this model, the reference to the
+object itself contains a slot which holds the index and reference
+to the array it is contained in for easy lookup and removal.
+
+Then, the only arrays are those of the class-names which we need to
+implement the type dependency graph.
