@@ -122,21 +122,22 @@ in fact EXCEUTE-FLOW might not ever return if the HOFSM ends up in
 an infinite loop.
 
 *** EXECUTE-FLOW usage
-The function (execute-flow 'ENTRY (flow 'frame-flow) core-state)
-will run ONE frame's worth of flow. This is the entire main loop
-of the game run over all components, game objects and other
-appropriate things. Upon return of the top level HOFSM which
-executes a frame, you can determine if the game should do
-another frame or shutdown.
+The function (execute-flow 'ENTRY 'default 'frame-flow
+core-state) will run the frame-flow flow from the default
+call-flow. This is the entire main loop of the game run over all
+components, game objects and other appropriate things. Upon
+return of the top level HOFSM which executes a frame, you can
+determine if the game should do another frame or shutdown.
 
 ** Definition of CALL-FLOW
-A CALL-FLOW contains a collection of FLOW definitions.
+A CALL-FLOW contains a collection of FLOW definitions. It has a name
+that is used to identify it among multiple call flows.
 
 #+BEGIN_SRC common-lisp
-(call-flow
- flow0
+(call-flow name
+           flow0
 
- flowN)
+           flowN)
 #+END_SRC
 
 A FLOW is named contains a set of FLOW-STATE definitions.
@@ -191,9 +192,10 @@ application of the FLOW-STATE (not specified here).
               EXIT/PHYSICS))
 #+END_SRC
 
-** Full Example of CALL-FLOW to run one frame in a main game loop
+** COMMENT Full Example of CALL-FLOW to run one frame in a main game loop
 #+BEGIN_SRC common-lisp
 (call-flow
+ default
  ;; Hrm. This is all single dispatch, is that good? Is there more
  ;; opportunity for CL's strengths in here?
 
@@ -331,8 +333,9 @@ application of the FLOW-STATE (not specified here).
        (floe-state EXIT/FLOW-FINISHED () NIL))
 
  (flow frame-flow
-       ;; First spawn any game-objects (which may or may not be empty of
-       ;; components, but were created LAST frame and put into a staging area.
+       ;; First spawn any game-objects (which may or may not be empty
+       ;; of components, but were created LAST frame and put into a
+       ;; staging area.
        (flow-state ENTRY ()
                    (lambda (core-state)
                      core-state)
@@ -413,7 +416,8 @@ application of the FLOW-STATE (not specified here).
                    (lambda (core-state)
                      GAME-OBJECT-MAINTENANCE))
 
-       ;; if game objects are marked destroeyd, then kill all components too.
+       ;; if game objects are marked destroeyd, then kill all
+       ;; components too.
        (flow-state GAME-OBJECT-MAINTENANCE ()
                    (lambda (core-state)
                      core-state)
@@ -461,145 +465,172 @@ application of the FLOW-STATE (not specified here).
 Apply all of the call-graph methods to all components ordered
 by type of component.
 ** Definition of TYPE-FLOW
-A type-flow simply holds a pile of dag definitions.
+A type-flow holds a pile of dag graph definitions. A type-flow is
+named and there is a standard type-flow provided by the system
+called "default".  The default type-flow is designed to load the
+"project" type flow found in the user workspace. All type-flows
+must have a unique name.
 
-LIMITATION: As of now, all type-flows are not namespaced, so it is
-as if their union of dags exist, so, it is difficult to deal with name
-collisions.
+The top-level definition is:
 
-
-The top-level definition is
 #+BEGIN_SRC common-lisp
-(type-flow
- dag0
+(type-flow name
+           dag0
 
- dagN)
+           dagN)
 #+END_SRC
 ** Definition of DAG in TYPE-FLOW
 A DAG in a type-flow is named with a symbol.
 
 It contains zero to N forms, called a dependency form:
 
-([T ->]? [symbol symbol* [->]?]* NIL?).
+([symbol+ [->]?]*)
 
 Each dependency form represents a portion of the type dependency DAG
-under that dag definition. There is an implicit start node called T
-that has as its children the symbol before the FIRST -> in each
-dependency form. There is an implicit end node called NIL which has
-an edge from all symbol after the last -> to it. You may use T and
-NIL in the DAG, but they can only be in the legal places.
+under that dag definition.
 
-Here is an example of the DAG form:
+Here is an example of the DAG form. The order of the dependency forms
+themselves is not meaningful as all of them together describe the DAG.
+The DAG may or may not be disjoint. A DAG by definition has no cycles.
 
-#+begi1n_SRC common-lisp
+#+BEGIN_SRC common-lisp
 (dag name
+     ;; first dependency form
      (A -> B C D -> E F -> G)
+     ;; second dependency form
      (C -> Z)
+     ;; third dependency form
      (X -> C)
      ;; and more dependency forms if you want.
      )
 #+END_SRC
 
 *** Dependency Form Semantics
+**** Meaning of ->
+-> means "depends on". This example:
+
+(A -> B C D -> E)
+
+A's state depends on B C D's state, and B C D's state depends
+on E's state.
+
+After computing the final dag, a topological sort is performed
+which linearizes the state updates for all instances of the types
+in question.
+
+So E's state is updated first, then B C D is updated in any
+order, then A's state.
+
 **** Symbol position semantics
 Each symbol (but not ->) position in a dependency form,
-(example above: A B C D X Z) can contain:
+(example above: A B C D E) can contain the form:
+
 ***** SYMBOL
-This is a component class type name, like =transform=.
+This is a concrete component class type name, like =transform=.
+
+LIMITATION: At this time, midlevel inheritcance component types
+cannot be specified.
 
 ***** (SPLICE SYMBOL)
-This means to splice that in scope dag name into the dag right there.
-It will perform a cross product of edges into and out of the splice
+This means to splice the dag name, found in the same
+type-flow, into the dag right at the form location.  It will
+perform a cross product of edges into and out of the splice
 as expected.
 
+***** (SPLICE TYPE-FLOW-NAME SYMBOL PATH)
+Splice a dag name, found in the type-flow located in the file
+at the path into the current dag at the current location.
+
 ***** (SYNC SYMBOL)
-This defines a fake node in the DAG (not in the same namespace
-as the actual class types) that is used as a sync node in the
-DAG. A sync node is just a node the flow can go through without
-having to be a real type.
+This defines a fake node in the DAG definition that is used
+as a sync node in the DAG. A sync node is just a node the
+flow can go through without having to be a real type. This
+sync node is unique per dag and per splice of it. The name
+of a sync node cannot by any type in the DAG, even gotten
+through splicing.
 
-***** (G-SYNC symbol)
-This is a *globally* defined synch node for ALL dags! Use
-carefully!
-
-***** (IMPORT symbol path)
-This means to import the named dag (and all dependencies
-including other imports) from the file specified and splice the dag
-
-**** Meaning of ->
-TODO
-
-
+*** Nesting of TYPE-FLOW forms
+At this time type-flow forms may not nest.
 *** Nesting of DAG forms
-dag forms can nest, in which case the names of the dags are
-scoped properly. SYNCH nodes exist only in the dag they are used
-in.  If a SYNCH node in a dag is spliced multiple times, each
-synch node is different and local only to that splice.
+At this time dag definition forms may not nest.
+
 ** Example TYPE-FLOW
 
 #+BEGIN_SRC common-lisp
-(type-flow
+(type-flow default
+           ;; It will be filled at runtime with the names of types not
+           ;; specified here.  They will have flow-states applied in
+           ;; random order.
+           (dag unknown-types
+                ())
 
- ;; dag unordered-types is required.
- ;; It will be filled at runtime with the names of types not specified here.
- ;; They will ahve flow-states applied in random order.
- (dag unknown-types
-      (T -> NIL))
+           ;; dag core-types is required
+           ;; this contains all core component type names
+           (dag core-types
+                ( transform ))
 
- ;; dag core-types is required
- ;; this contains all core component type names
- (dag core-types
-      (T ->
-         transform
-         ))
+           ;; dag user-flow is required. In here goes the huge list of
+           ;; types the user creates for components.
+           (dag ordered-types
+                ((splice project user-flow "some/file/in/examples")))
 
- ;; dag user-types is required. In here goes the huge list of types the user
- ;; creates for components.
- (dag ordered-types
-      ((import user-types "some/file/in/examples")))
+           ;; dag all-types is required
 
- ;; dag all-types is required
- ;; This is the toplevel dag that encodes all type dependency information for
- ;; the order of application of flow-states.
- (dag all-ordered-types
-      (T ->
-         ;; enforce that all unknown typed components get executed first.
-         ;; Why? Beats me, arbitrary decision.
-         (splice unknown-types) ->
-         ;; But ordered types should happen before core-types
-         (splice ordered-types) ->
-         ;; because this holds the results of all changes the users codes do.
-         (splice core-types) ->
-         NIL
-         )))
-
+           ;; This is the toplevel dag that encodes all type
+           ;; dependency information for the order of application of
+           ;; flow-states.
+           (dag all-ordered-types
+                (
+                 ;; enforce that all unknown typed components get
+                 ;; executed first.  Why? Beats me, arbitrary
+                 ;; decision.
+                 (splice unknown-types) ->
+                 ;; But ordered types should happen before
+                 ;; core-types
+                 (splice ordered-types) ->
+                 ;; because this holds the results of all changes
+                 ;; the users codes do.
+                 (splice core-types)
+                 )))
 #+END_SRC
 * core-state instance
 The core-state is an instance holding bookeeping information to
 enable the execution of the methods on the components and other places.
 "Game" state related to any particular game is NOT kept here.
 
+It is not intended that all states of game-objects or components have
+specific tables to which those objects move among.
+
 This is somewhat soft, noted in some places.
 
 ** ALL game-objects intending to be (or are) inserted into the scene-tree
-*** HASH TABLE in slot game-object-view has TWO exact keys:
-'game-object-init-db
-'game-object-db
-
-The values of each are a list of actual GAME-OBJECT types.
-
+*** SLOT game-object-inititialize-db is a HASH TABLE
+This hash table is keyed by a game-object reference and its value is
+the game object itself. The value is the conceptual storage location for
+a game-object in the initialize state.
+*** SLOT game-object-active-db is a HASH TABLE
+This hash table is keyed by a game-object reference and its value is
+the game object itself. The value is the conceptual storage location for
+a game-object and the component is in the active state.
 ** ALL components added to any game-object
-*** HASH TABLE in slot component-view has TWO exact keys:
-'component-init-db
-'component-db
-
-The values of each are a list of actual COMPONENT types.
-
+*** SLOT component-initialize-db is a HASH TABLE
+This hash table is keyed by a reference to a component instance.
+The value is a reference to the component instance that is conceptually
+stored in the game-object itself. Components which are in the
+initializing state are referenced in this hash table.
+*** SLOT component-active-db is a HASH TABLE
+This hash table is keyed by a reference to a component instance.
+The value is a reference to the component instance that is conceptually
+stored in the game-object itself. Components which are in the
+active state are referenced in this hash table.
 ** Scene tree
-*** In slot scene-tree there is a single instance of the root object
-Unknown whether to keep the initial scaffolding hash table....
+*** SLOT scene-tree is a reference to the scene-tree root game-object
+** Call Flow
+*** SLOT call-flow is a HASH TABLE
+This hash table is keyed by the name of call-flow.  The value is
+the conceptual storage location for an object describing the
+call-flow.
 
-** Flow Call Graph
 *** HASH-TABLE in slot call-flows has N keys:
 This is an example key from the above step 3, there will be N like it:
 
@@ -610,7 +641,7 @@ The value of the above key is a FLOW-STATE hash table.
 The FLOW-STATE hash table is keyed by FLOW-STATE name symbols.
 A flow-state value is a single instance of a specific FLOW-STATE object.
 
-** Flow Type Call Dependency Graph
+** Type Dependency Flow
 *** HASH TABLE in slot type-flows has N keys:
 In step 4's DSL which isn't defined yet, there may be a similar
 concept to flows. Or it might be a more traditional DAG specification.
