@@ -629,35 +629,16 @@ active state are referenced in this hash table.
 *** SLOT call-flow is a HASH TABLE
 This hash table is keyed by the name of call-flow.  The value is
 the conceptual storage location for an object describing the
-call-flow.
-
-*** HASH-TABLE in slot call-flows has N keys:
-This is an example key from the above step 3, there will be N like it:
-
-'game-object-initialization-flow
-
-The value of the above key is a FLOW-STATE hash table.
-**** FLOW-STATE HASH TABLE
-The FLOW-STATE hash table is keyed by FLOW-STATE name symbols.
-A flow-state value is a single instance of a specific FLOW-STATE object.
+call-flow. It is that object which contains information about the
+flows contained in that specific call-flow.
 
 ** Type Dependency Flow
-*** HASH TABLE in slot type-flows has N keys:
-In step 4's DSL which isn't defined yet, there may be a similar
-concept to flows. Or it might be a more traditional DAG specification.
-Can't implement this slot's code until step 4 DSL and semantics
-are completed.
+*** SLOT type-flows is a HASH TABLE
+This hashtable is keyed by type-flow names. The values are the conceptual
+storage location for type-flow instances that contain the description of
+all named flows associated with that instance.
 
-*** HASH TABLE in slot type-views has N keys:
-This is one example key, there will be many like it.
-All of these keys are exactly the defclass type names of components.
-
-'gun
-
-The value is a list of references of all gun typed component instances
-in either 'component-init-db or 'component-db above.
-
-** Core State Internals
+** Core State Internals Future Considerations
 Accessing a vector is far faster than a hash table, by definition.
 But accessing a hash table by object reference is pretty useful.
 
