@@ -613,12 +613,12 @@ This hash table is keyed by a game-object reference and its value is
 the game object itself. The value is the conceptual storage location for
 a game-object and the component is in the active state.
 ** ALL components added to any game-object
-*** SLOT component-initialize-db is a HASH TABLE
+*** SLOT component-initialize-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance.
 The value is a reference to the component instance that is conceptually
 stored in the game-object itself. Components which are in the
 initializing state are referenced in this hash table.
-*** SLOT component-active-db is a HASH TABLE
+*** SLOT component-active-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance.
 The value is a reference to the component instance that is conceptually
 stored in the game-object itself. Components which are in the
@@ -638,6 +638,22 @@ flows contained in that specific call-flow.
 This hashtable is keyed by type-flow names. The values are the conceptual
 storage location for type-flow instances that contain the description of
 all named flows associated with that instance.
+*** SLOT unknown-type is a SYMBOL
+This gensymed symbol represents the "unknown" type where all component
+instance types that are not directly specified in the type-flow get
+stored.
+*** SLOT component-type-view is a HASH TABLE
+The key for this hash table is a concrete component type (or the
+unknown sentinel) and the value is a second hash table. This
+second hash table's key is a reference to a component.  The
+second hash table's value is a reference to the same component
+which is conceptually stored in the game-object.
+*** SLOT sorted-type-dependencies is a LIST
+This list contains, as a topological sort of the type-dependency
+graph, from left to right, symbol names of concrete types (or
+the unknown sentinel) in a topological sort of depndencies. The first
+entry is the earliest type that must be processed before moving
+on to types that depend on it.
 ** Core State Internals Future Considerations
 Accessing a vector is far faster than a hash table, by definition.
 But accessing a hash table by object reference is pretty useful.
