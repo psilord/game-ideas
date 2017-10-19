@@ -628,16 +628,18 @@ active state are referenced in this hash table.
 The object being referenced is conceptually stored in the slot
 game-object-active-db.
 ** Call Flow
-*** SLOT call-flow is a HASH TABLE
+*** SLOT call-flows is a HASH TABLE
 This hash table is keyed by the name of call-flow.  The value is
 the conceptual storage location for an object describing the
 call-flow. It is that object which contains information about the
 flows contained in that specific call-flow.
+**** TODO Define call-flow object internals (and flow-state internals)
 ** Type Dependency Flow
 *** SLOT type-flows is a HASH TABLE
 This hashtable is keyed by type-flow names. The values are the conceptual
 storage location for type-flow instances that contain the description of
 all named flows associated with that instance.
+**** TODO Define type-flow object internals (and flow object internals)
 *** SLOT unknown-type is a SYMBOL
 This gensymed symbol represents the "unknown" type where all component
 instance types that are not directly specified in the type-flow get
