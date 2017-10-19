@@ -625,19 +625,19 @@ stored in the game-object itself. Components which are in the
 active state are referenced in this hash table.
 ** Scene tree
 *** SLOT scene-tree is a reference to the scene-tree root game-object
+The object being referenced is conceptually stored in the slot
+game-object-active-db.
 ** Call Flow
 *** SLOT call-flow is a HASH TABLE
 This hash table is keyed by the name of call-flow.  The value is
 the conceptual storage location for an object describing the
 call-flow. It is that object which contains information about the
 flows contained in that specific call-flow.
-
 ** Type Dependency Flow
 *** SLOT type-flows is a HASH TABLE
 This hashtable is keyed by type-flow names. The values are the conceptual
 storage location for type-flow instances that contain the description of
 all named flows associated with that instance.
-
 ** Core State Internals Future Considerations
 Accessing a vector is far faster than a hash table, by definition.
 But accessing a hash table by object reference is pretty useful.
