@@ -668,6 +668,7 @@ on to types that depend on it.
 *** Function MAKE-CORE-STATE
 Return a corestate instance. Take initargs, but usually none need to
 be defined.
+
 *** Function ADD-SCENE-TREE-ROOT
 #+BEGIN_SRC common-lisp
 (ADD-SCENE-TREE-ROOT core-state actor)
