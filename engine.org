@@ -34,7 +34,7 @@ in the scene tree DSL but they can be programmatically made too.
                         :initform (make-hash-table)
 #+END_SRC
 
-** Core Components (needs more examples as we make them)
+** Core Components Disctionary
 *** Transform
 *** Tags
 ** User-level components specific to an individual game.
@@ -656,6 +656,18 @@ graph, from left to right, symbol names of concrete types (or
 the unknown sentinel) in a topological sort of depndencies. The first
 entry is the earliest type that must be processed before moving
 on to types that depend on it.
+** Core State API
+*** Function ADD-INITIALIZING-GAME-OBJECT
+#+BEGIN_SRC common-lisp
+(ADD-INITIALIZING-GAME-OBJECT core-state game-object
+			      initializer-thunk-list)
+#+END_SRC
+
+This function takes a core-state, the game-object (filled with
+components), and the initializer-thunk-list which contains a
+list of thunks taking no arguments. Each thunk will be run once
+at the appropriate time, to ensure the components in the object
+are initialized before they enter the scene tree.
 ** Core State Internals Future Considerations
 Accessing a vector is far faster than a hash table, by definition.
 But accessing a hash table by object reference is pretty useful.
