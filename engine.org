@@ -37,7 +37,7 @@ in the scene tree DSL but they can be programmatically made too.
 ** Core Components Dictionary
 *** Transform
 *** Tags
-***Basis
+*** Basis
 Renders a 3D set of basis vectors for visualizing the orientation of an object.
 
 ** User-level components specific to an individual game.
