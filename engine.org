@@ -34,9 +34,12 @@ in the scene tree DSL but they can be programmatically made too.
                         :initform (make-hash-table)
 #+END_SRC
 
-** Core Components Disctionary
+** Core Components Dictionary
 *** Transform
 *** Tags
+*** Basis
+Renders a 3D set of basis vectors for visualizing the orientation of an object.
+
 ** User-level components specific to an individual game.
 #+BEGIN_SRC common-lisp
 (defclass hit-points (component)
