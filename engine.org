@@ -606,7 +606,7 @@ specific tables to which those objects move among.
 
 This is somewhat soft, noted in some places.
 
-** ALL actors intending to be (or are) inserted into the scene-tree
+** ALL actors intending to be inserted into the scene-tree
 *** SLOT actor-inititialize-db is a HASH TABLE
 This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
