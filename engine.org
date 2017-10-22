@@ -13,9 +13,9 @@ in the scene tree DSL but they can be programmatically made too.
   ;; A reference to the gobj container holding this component.
   ((%state :initarg :state
            :accessor state)
-   (%game-object :initarg :game-object
+   (%actor :initarg :actor
                  :initform NIL
-                 :accessor game-object)))
+                 :accessor actor)))
 
 (defclass gobj ()
   ((%id :initarg :id
@@ -203,16 +203,16 @@ application of the FLOW-STATE (not specified here).
  ;; by returning the correct states, the executor will recurse forever
  ;; until something about a state transition picks a different path.
 
- (flow game-object-initialization-flow
+ (flow actor-initialization-flow
        (flow-state ENTRY () ;; bindings in a let for the two functions.
                    ;; Select what I want to work on.
                    (lambda (core-state)
-                     (game-objects-initialize-db core-state))
+                     (actors-initialize-db core-state))
 
                    ;; This function is run for every instance
                    (lambda (inst &rest args)
                      ;; a core function, not exposed to users.
-                     (apply #'spawn-game-object inst args))
+                     (apply #'spawn-actor inst args))
 
                    ;; After all instances have been processed, this
                    ;; function is run once by the executor in order to
@@ -299,17 +299,17 @@ application of the FLOW-STATE (not specified here).
        (flow-state EXIT/FLOW-FINISHED ()
                    NIL))
 
- (flow game-object-maintenance-flow
+ (flow actor-maintenance-flow
        (flow-state ENTRY ()
                    (lambda (core-state)
-                     (game-objects-db core-state))
+                     (actors-db core-state))
 
                    (lambda (inst &rest args)
-                     (unless (game-object-status-p 'alive inst)
+                     (unless (actor-status-p 'alive inst)
                        ;; This should mark all components as
-                       ;; dead and including the game-object.
+                       ;; dead and including the actor.
                        ;; NOT a user facing API.
-                       (apply #'destroy-game-object inst args)))
+                       (apply #'destroy-actor inst args)))
 
                    (lambda (core-state)
                      EXIT/FLOW-FINISHED))
@@ -333,7 +333,7 @@ application of the FLOW-STATE (not specified here).
        (floe-state EXIT/FLOW-FINISHED () NIL))
 
  (flow frame-flow
-       ;; First spawn any game-objects (which may or may not be empty
+       ;; First spawn any actors (which may or may not be empty
        ;; of components, but were created LAST frame and put into a
        ;; staging area.
        (flow-state ENTRY ()
@@ -342,8 +342,8 @@ application of the FLOW-STATE (not specified here).
 
                    (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'game-object-initialization-flow inst)
-                                   (game-object-init-db inst)))
+                                   (flow 'actor-initialization-flow inst)
+                                   (actor-init-db inst)))
 
                    (lambda (core-state)
                      INIT-COMPONENTS))
@@ -414,18 +414,18 @@ application of the FLOW-STATE (not specified here).
                                    (component-db core-state)))
 
                    (lambda (core-state)
-                     GAME-OBJECT-MAINTENANCE))
+                     ACTOR-MAINTENANCE))
 
        ;; if game objects are marked destroeyd, then kill all
        ;; components too.
-       (flow-state GAME-OBJECT-MAINTENANCE ()
+       (flow-state ACTOR-MAINTENANCE ()
                    (lambda (core-state)
                      core-state)
 
                    (lambda (inst)
                      (execute-flow 'ENTRY
-                                   (flow 'game-object-maintenance-flow inst)
-                                   (game-object-db inst)))
+                                   (flow 'actor-maintenance-flow inst)
+                                   (actor-db inst)))
                    (lambda (core-state)
                      COMPONENT-MAINTENANCE))
 
@@ -598,35 +598,35 @@ The core-state is an instance holding bookeeping information to
 enable the execution of the methods on the components and other places.
 "Game" state related to any particular game is NOT kept here.
 
-It is not intended that all states of game-objects or components have
+It is not intended that all states of actors or components have
 specific tables to which those objects move among.
 
 This is somewhat soft, noted in some places.
 
-** ALL game-objects intending to be (or are) inserted into the scene-tree
-*** SLOT game-object-inititialize-db is a HASH TABLE
-This hash table is keyed by a game-object reference and its value is
+** ALL actors intending to be (or are) inserted into the scene-tree
+*** SLOT actor-inititialize-db is a HASH TABLE
+This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
-a game-object in the initialize state.
-*** SLOT game-object-active-db is a HASH TABLE
-This hash table is keyed by a game-object reference and its value is
+a actor in the initialize state.
+*** SLOT actor-active-db is a HASH TABLE
+This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
-a game-object and the component is in the active state.
-** ALL components added to any game-object
+a actor and the component is in the active state.
+** ALL components added to any actor
 *** SLOT component-initialize-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance.
 The value is a reference to the component instance that is conceptually
-stored in the game-object itself. Components which are in the
+stored in the actor itself. Components which are in the
 initializing state are referenced in this hash table.
 *** SLOT component-active-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance.
 The value is a reference to the component instance that is conceptually
-stored in the game-object itself. Components which are in the
+stored in the actor itself. Components which are in the
 active state are referenced in this hash table.
 ** Scene tree
-*** SLOT scene-tree is a reference to the scene-tree root game-object
+*** SLOT scene-tree is a reference to the scene-tree root actor
 The object being referenced is conceptually stored in the slot
-game-object-active-db.
+actor-active-db.
 ** Call Flow
 *** SLOT call-flows is a HASH TABLE
 This hash table is keyed by the name of call-flow.  The value is
@@ -649,7 +649,7 @@ The key for this hash table is a concrete component type (or the
 unknown sentinel) and the value is a second hash table. This
 second hash table's key is a reference to a component.  The
 second hash table's value is a reference to the same component
-which is conceptually stored in the game-object.
+which is conceptually stored in the actor.
 *** SLOT sorted-type-dependencies is a LIST
 This list contains, as a topological sort of the type-dependency
 graph, from left to right, symbol names of concrete types (or
@@ -657,13 +657,13 @@ the unknown sentinel) in a topological sort of depndencies. The first
 entry is the earliest type that must be processed before moving
 on to types that depend on it.
 ** Core State API
-*** Function ADD-INITIALIZING-GAME-OBJECT
+*** Function ADD-INITIALIZING-ACTOR
 #+BEGIN_SRC common-lisp
-(ADD-INITIALIZING-GAME-OBJECT core-state game-object
+(ADD-INITIALIZING-ACTOR core-state actor
 			      initializer-thunk-list)
 #+END_SRC
 
-This function takes a core-state, the game-object (filled with
+This function takes a core-state, the actor (filled with
 components), and the initializer-thunk-list which contains a
 list of thunks taking no arguments. Each thunk will be run once
 at the appropriate time, to ensure the components in the object
