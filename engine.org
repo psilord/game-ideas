@@ -611,7 +611,7 @@ This is somewhat soft, noted in some places.
 This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
 a actor in the initialize state.
-*** SLOT actor-initialize-thunks-view is a HASH TABLE
+*** SLOT actor-initialize-thunks-db is a HASH TABLE
 This hash table is keyed by a reference to the actor
 instance. The value is the list of thunks needed to initialize
 all the components in the actor. The value is removed after the
