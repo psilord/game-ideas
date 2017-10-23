@@ -94,7 +94,14 @@ NOTE: Keywords cannot be used as variables in LET.
      :type :missle)))))
 #+END_SRC
 
-There is a problem with the above scene representation: It refers to components that are defined both by the engine and by the user in their own package. This presents the problem of package qualifying symbols correctly: for example, if GUN-MANAGER was builtin to the engine, and GUN was defined by the user, the calls to MAKE-INSTANCE would need to be (make-instance 'gear::gun-manager ..) and (make-instance 'user-pkg::gun) respectively. Below I present one of many possible solutions to this problem:
+There is a problem with the above scene representation: It refers to
+components that are defined both by the engine and by the user in
+their own package. This presents the problem of package qualifying
+symbols correctly: for example, if GUN-MANAGER was builtin to the
+engine, and GUN was defined by the user, the calls to MAKE-INSTANCE
+would need to be (make-instance 'gear::gun-manager ..) and
+(make-instance 'user-pkg::gun) respectively. Below I present one of
+many possible solutions to this problem:
 
 #+BEGIN_SRC common-lisp
 ;; component macro that interns class name, slot, and accessor method symbols
@@ -109,9 +116,16 @@ There is a problem with the above scene representation: It refers to components 
                        :initform ,value))))
 #+END_SRC
 
-The above macro defines a component in a concise fashion that explicitly interns relevant symbols into the engine's package, such that, no matter where DEFINE-COMPONENT is defined, GEAR will be the package that 'registers' the components. Thus, the macro expansion for the above scene can know how to instantiate or look them up by type.
+The above macro defines a component in a concise fashion that
+explicitly interns relevant symbols into the engine's package, such
+that, no matter where DEFINE-COMPONENT is defined, GEAR will be the
+package that 'registers' the components. Thus, the macro expansion
+for the above scene can know how to instantiate or look them up by
+type.
 
-As an example, the following is a definition of a transform component defined in *user* code for illustration purposes (in reality it will be defined as a builtin component):
+As an example, the following is a definition of a transform
+component defined in *user* code for illustration purposes (in reality
+it will be defined as a builtin component):
 
 #+BEGIN_SRC common-lisp
 (define-component transform ()
@@ -123,7 +137,7 @@ As an example, the following is a definition of a transform component defined in
   (scale (make-transform-state 'transform-state-vector))
   (local (mid))
   (model (mid)))
-  
+
 ;; expansion
 (DEFCLASS GEAR:TRANSFORM (GEAR:COMPONENT)
   ((ENGINE::%PARENT :ACCESSOR GEAR::PARENT
@@ -149,7 +163,8 @@ As an example, the following is a definition of a transform component defined in
                  :INITFORM (MID))))
 #+END_SRC
 
-As can be seen in the expansion, no symbols are interned into USER-PKG, but instead they are interned in the GEAR package.
+As can be seen in the expansion, no symbols are interned into
+USER-PKG, but instead they are interned in the GEAR package.
 
 * STEP 3: Extensible call graph for each component
 We define a graph called a CALL-FLOW.
