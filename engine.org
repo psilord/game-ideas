@@ -140,7 +140,7 @@ it will be defined as a builtin component):
 
 ;; expansion
 (DEFCLASS GEAR:TRANSFORM (GEAR:COMPONENT)
-  ((ENGINE::%PARENT :ACCESSOR GEAR::PARENT
+  ((GEAR::%PARENT :ACCESSOR GEAR::PARENT
                   :INITARG :PARENT
                   :INITFORM NIL)
    (GEAR::%CHILDREN :ACCESSOR GEAR::CHILDREN
