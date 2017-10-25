@@ -292,7 +292,7 @@ application of the FLOW-STATE (not specified here).
                    ;; This function is run for every instance
                    (lambda (inst &rest args)
                      ;; a core function, not exposed to users.
-                     (apply #'spawn-actor inst args))
+                     (apply #'realize-actor inst args))
 
                    ;; After all instances have been processed, this
                    ;; function is run once by the executor in order to
@@ -306,6 +306,7 @@ application of the FLOW-STATE (not specified here).
        (flow-state EXIT/FLOW-FINISHED :reset ()
                    NIL))
 
+;; dead state
  (flow component-initialization-flow
        (flow-state ENTRY :reset ()
                    (lambda (core-state)
@@ -710,6 +711,11 @@ The value is a reference to the component instance that is conceptually
 stored in the actor itself. Components which are in the
 active state are referenced in this hash table.
 ** Scene tree
+*** SLOT scene-table is a HASH-TABLE
+This slot holds a hash table keyed by symbols, often keywords, whose
+values are thunks that represent an injection of a set of actors from
+a scene-definition dsl into the core-state. When preparing scenes,
+all prepared scenes end up in this same hash table.
 *** SLOT scene-tree is a reference to the scene-tree root actor
 The object being referenced is conceptually stored in the slot
 actor-active-db.
