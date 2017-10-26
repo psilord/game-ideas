@@ -720,7 +720,7 @@ all prepared scenes end up in this same hash table.
 The object being referenced is conceptually stored in the slot
 actor-active-db.
 ** Call Flow
-*** SLOT call-flows is a HASH TABLE
+*** SLOT call-flow-table is a HASH TABLE
 This hash table is keyed by the name of call-flow.  The value is
 the conceptual storage location for an object describing the
 call-flow. It is that object which contains information about the
