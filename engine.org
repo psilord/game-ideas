@@ -304,7 +304,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FINISHED :reset ()
-                   NIL))
+                   NIL NIL NIL))
 
  (flow component-logic-flow
        (flow-state ENTRY/PHYSICS-UPDATE :reset ()
@@ -321,7 +321,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/PHYSICS))
 
        (flow-state EXIT/PHYSICS :reset ()
-                   NIL)
+                   NIL NIL NIL)
 
        (flow-state ENTRY/COLLISIONS :reset ()
                    (lambda (core-state)
@@ -336,7 +336,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/COLLISIONS))
 
        (flow-state EXIT/COLLISIONS :reset ()
-                   NIL)
+                   NIL NIL NIL)
 
        ;; Once looped physics/collisions are dealt with, we can do the
        ;; rest of this flow properly.
@@ -362,7 +362,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FINISHED :reset ()
-                   NIL))
+                   NIL NIL NIL))
 
  (flow actor-maintenance-flow
        (flow-state ENTRY :reset ()
@@ -380,7 +380,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/FLOW-FINISHED))
 
        (flow-state EXIT/FLOW-FIISHED :reset ()
-                   NIL))
+                   NIL NIL NIL))
 
  (flow component-maintenance-flow
        (flow-state ENTRY :reset ()
@@ -396,7 +396,7 @@ application of the FLOW-STATE (not specified here).
                      EXIT/FLOW-FIISHED))
 
        (flow-state EXIT/FLOW-FINISHED :reset ()
-                   NIL))
+                   NIL NIL NIL))
 
  (flow frame-flow
        ;; First spawn any actors (which may or may not be empty
@@ -409,7 +409,7 @@ application of the FLOW-STATE (not specified here).
                    (lambda (core-state inst)
                      (execute-flow 'ENTRY
                                    (flow 'actor-initialization-flow
-					 core-state)
+                                         core-state)
                                    (actor-init-db core-state)))
 
                    (lambda (core-state)
@@ -418,12 +418,12 @@ application of the FLOW-STATE (not specified here).
        ;; Then initialize any components that need initializaing.
        (flow-state INIT-COMPONENTS :reset ()
                    (lambda (core-state)
-		     nil)
+                     nil)
 
                    (lambda (core-state inst)
                      (execute-flow 'ENTRY
                                    (flow 'component-initialization-flow
-					 core-state)
+                                         core-state)
                                    (component-init-db core-state)))
 
                    (lambda (core-state)
@@ -506,7 +506,7 @@ application of the FLOW-STATE (not specified here).
                    (lambda (core-state inst)
                      (execute-flow 'ENTRY
                                    (flow 'component-maintenance-flow
-					 core-state)
+                                         core-state)
                                    (component-db core-state)))
                    (lambda (core-state)
                      CONTINUE/EXIT))
@@ -523,10 +523,10 @@ application of the FLOW-STATE (not specified here).
                          EXIT/DO-NEXT-FRAME)))
 
        (flow-state EXIT/DO-NEXT-FRAME :reset ()
-                   NIL)
+                   NIL NIL NIL)
 
        (flow-state EXIT/GAME-OVER :reset ()
-                   NIL)))
+                   NIL NIL NIL)))
 
 #+END_SRC
 
