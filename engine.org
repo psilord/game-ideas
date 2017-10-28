@@ -671,7 +671,12 @@ It is not intended that all states of actors or components have
 specific tables to which those objects move among.
 
 This is somewhat soft, noted in some places.
-
+** Context
+*** SLOT context is an INSTANCE of class context
+The core-state holds a CONTEXT object that is passed to all
+protocol functions for components via exceute-flow. It holds
+at LEAST time related attributes, like time since start of game,
+current time, delta-time since last frame, etc.
 ** ALL actors intending to be inserted into the scene-tree
 *** SLOT actor-inititialize-db is a HASH TABLE
 This hash table is keyed by a actor reference and its value is
