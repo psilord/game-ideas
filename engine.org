@@ -104,7 +104,7 @@ function that executes the CALL-FLOW.
 ** Function EXECUTE-FLOW
 The purpose of EXECUTE-FLOW is to map the states of the CALL-FLOW over the
 component instances and other things in such a manner as to honor a
-type-dependency graph.
+type dependency graph.
 
 EXECUTE-FLOW will execute a state and then determine if the state returned by
 the transition function can also be executed. If it can, it immediately executes
@@ -118,9 +118,9 @@ EXCEUTE-FLOW might not ever return if the HOFSM ends up in an infinite loop.
 *** EXECUTE-FLOW usage
 The function (execute-flow 'ENTRY 'default 'frame-flow core-state) will run the
 frame-flow flow from the default call-flow. This is the entire main loop of the
-game run over all components, game objects and other appropriate things. Upon
-return of the top level HOFSM which executes a frame, you can determine if the
-game should do another frame or shutdown.
+game run over all components, actors and other appropriate things. Upon return
+of the top level HOFSM which executes a frame, you can determine if the game
+should do another frame or shutdown.
 
 ** Definition of CALL-FLOW
 A CALL-FLOW contains a collection of FLOW definitions. It has a name that is
@@ -143,7 +143,7 @@ A FLOW is named contains a set of FLOW-STATE definitions.
 
 A FLOW-STATE is a single state in the encompassing FLOW that contains: a set of
 bindings (and a policy about those bindings) that are available over three
-denoted functions. The policu indicates if the bindings should be reset each
+denoted functions. The policy indicates if the bindings should be reset each
 time the state is entered, or not. Currently only :reset is available, and
 required. This means each time the state is entered, the bindings are reset to
 the initial user forms in the call-flow DSL. NOTE: This will re-revaluate those
@@ -165,18 +165,18 @@ applications to the once applied state transition function so the state
 transition function can make the right choice about which next state to choose.
 
 Here is an example of a FLOW-STATE. This will call the PHYSICS-UPDATE method on
-all instance associated with this application of the FLOW-STATE (not specified
+all instances associated with this application of the FLOW-STATE (not specified
 here).
 
 #+BEGIN_SRC common-lisp
 (flow-state ENTRY/PHYSICS-UPDATE :reset ()
-            ;; Driver calls this once to get set of instances to run
-            ;; the second function across.
+            ;; Driver calls this once to get set of instances to run the second
+            ;; function across.
             (lambda (core-state)
               (components-db core-state))
 
-            ;; Driver calls this once on ALL instances selected by
-            ;; the first function.
+            ;; Driver calls this once on ALL instances selected by the first
+            ;; function.
             (lambda (i &rest args)
               ;; Call User defined method.
               (apply #'physics-update i args))
@@ -198,12 +198,12 @@ here).
  ;; something about a state transition picks a different path.
 
  (flow actor-initialization-flow
-       (flow-state ENTRY :reset () ;; bindings in a let for the two functions.
+       (flow-state ENTRY :reset ()    ; bindings in a let for the two functions.
                    ;; Select what I want to work on.
                    (lambda (core-state)
                      (actors-initialize-db core-state))
 
-                   ;; This function is run for every instance
+                   ;; This function is run for every instance.
                    (lambda (core-state inst)
                      ;; a core function, not exposed to users.
                      (realize-actor inst (context core-state)))
@@ -347,10 +347,10 @@ here).
 
                    (lambda (core-state inst)
                      ;; First, we run the physics and collision updates, maybe
-                     ;; in a loop depending what is required.
+                     ;; in a loop depending on what is required.
                      (loop :with again = T
                            :while again
-                           :do ;; First, run the User's physics functions over
+                           :do ;; First, run the user's physics functions over
                                ;; all ordered components.
                                (execute-flow
                                 'ENTRY/PHYSICS-UPDATE
@@ -391,7 +391,7 @@ here).
                    (lambda (core-state)
                      ACTOR-MAINTENANCE))
 
-       ;; if game objects are marked destroeyd, then kill all components too.
+       ;; if actors are marked destroyed, then kill all components too.
        (flow-state ACTOR-MAINTENANCE :reset ()
                    (lambda (core-state)
                      nil)
@@ -403,8 +403,8 @@ here).
                    (lambda (core-state)
                      COMPONENT-MAINTENANCE))
 
-       ;; Then, any game objects that died, or other components previously
-       ;; marked as being destroyed get destroeyd.
+       ;; Then, any actors that died, or other components previously marked as
+       ;; being destroyed get destroyed.
        (flow-state COMPONENT-MAINTENANCE :reset ()
                    (lambda (core-state)
                      nil)
@@ -421,7 +421,7 @@ here).
                    (lambda (core-state)
                      nil)
 
-                   NIL ;; no flows to run!
+                   NIL ; no flows to run!
 
                    (lambda (core-state)
                      (if (exitingp core-state)
@@ -440,13 +440,12 @@ Apply all of the call-graph methods to all components ordered by type of
 component.
 
 ** Definition of TYPE-FLOW
-A type-flow holds a pile of dag graph definitions. A type-flow is named and
+A type-flow holds a pile of DAG graph definitions. A type-flow is named and
 there is a standard type-flow provided by the system called "default". The
-default type-flow is designed to load the "project" type flow found in the user
+default type-flow is designed to load the "project" type-flow found in the user
 workspace. All type-flows must have a unique name.
 
 The top-level definition is:
-
 #+BEGIN_SRC common-lisp
 (type-flow name
            dag0
@@ -500,22 +499,22 @@ E) can contain the form:
 ***** SYMBOL
 This is a concrete component class type name, like =transform=.
 
-LIMITATION: At this time, midlevel inheritcance component types cannot be
+LIMITATION: At this time, midlevel inheritance component types cannot be
 specified.
 
 ***** (SPLICE SYMBOL)
-This means to splice the dag name, found in the same type-flow, into the dag
+This means to splice the DAG name, found in the same type-flow, into the DAG
 right at the form location. It will perform a cross product of edges into and
 out of the splice as expected.
 
 ***** (SPLICE TYPE-FLOW-NAME SYMBOL PATH)
-Splice a dag name, found in the type-flow located in the file at the path into
-the current dag at the current location.
+Splice a DAG name, found in the type-flow located in the file at the path into
+the current DAG at the current location.
 
 ***** (SYNC SYMBOL)
 This defines a fake node in the DAG definition that is used as a sync node in
 the DAG. A sync node is just a node the flow can go through without having to be
-a real type. This sync node is unique per dag and per splice of it. The name of
+a real type. This sync node is unique per DAG and per splice of it. The name of
 a sync node cannot by any type in the DAG, even gotten through splicing.
 
 *** Nesting of TYPE-FLOW forms
@@ -533,19 +532,19 @@ At this time dag definition forms may not nest.
            (dag unknown-types
                 ())
 
-           ;; dag core-types is required this contains all core component type
-           ;; names
+           ;; DAG core-types is required. This contains all core component type
+           ;; names.
            (dag core-types
                 ( transform ))
 
-           ;; dag user-flow is required. In here goes the huge list of types the
+           ;; DAG user-flow is required. In here goes the huge list of types the
            ;; user creates for components.
            (dag ordered-types
                 ((splice project user-flow "some/file/in/examples")))
 
-           ;; dag all-types is required
+           ;; DAG all-types is required.
 
-           ;; This is the toplevel dag that encodes all type dependency
+           ;; This is the toplevel DAG that encodes all type dependency
            ;; information for the order of application of flow-states.
            (dag all-ordered-types
                 (
@@ -559,7 +558,7 @@ At this time dag definition forms may not nest.
                  (splice core-types))))
 #+END_SRC
 * core-state instance
-The core-state is an instance holding bookeeping information to enable the
+The core-state is an instance holding bookkeeping information to enable the
 execution of the methods on the components and other places. "Game" state
 related to any particular game is NOT kept here.
 
@@ -574,16 +573,16 @@ for components via exceute-flow. It holds at LEAST time related attributes, like
 time since start of game, current time, delta-time since last frame, etc.
 ** ALL actors intending to be inserted into the scene-tree
 *** SLOT actor-inititialize-db is a HASH TABLE
-This hash table is keyed by a actor reference and its value is the game object
-itself. The value is the conceptual storage location for a actor in the
+This hash table is keyed by an actor reference and its value is the game object
+itself. The value is the conceptual storage location for an actor in the
 initialize state.
 *** SLOT actor-initialize-thunks-db is a HASH TABLE
 This hash table is keyed by a reference to the actor instance. The value is the
 list of thunks needed to initialize all the components in the actor. The value
 is removed after the thunks are executed. The thunks are only executed once.
 *** SLOT actor-active-db is a HASH TABLE
-This hash table is keyed by a actor reference and its value is the game object
-itself. The value is the conceptual storage location for a actor and the
+This hash table is keyed by an actor reference and its value is the actor
+itself. The value is the conceptual storage location for an actor and the
 component is in the active state.
 ** ALL components added to any actor
 *** SLOT component-initialize-view is a HASH TABLE
@@ -600,7 +599,7 @@ table.
 *** SLOT scene-table is a HASH-TABLE
 This slot holds a hash table keyed by symbols, often keywords, whose values are
 thunks that represent an injection of a set of actors from a scene-definition
-dsl into the core-state. When preparing scenes, all prepared scenes end up in
+DSL into the core-state. When preparing scenes, all prepared scenes end up in
 this same hash table.
 *** SLOT scene-tree is a reference to the scene-tree root actor
 The object being referenced is conceptually stored in the slot actor-active-db.
@@ -617,7 +616,7 @@ storage location for type-flow instances that contain the description of all
 named flows associated with that instance.
 **** TODO Define type-flow object internals (and flow object internals)
 *** SLOT unknown-type is a SYMBOL
-This gensymed symbol represents the "unknown" type where all component instance
+This gensym'd symbol represents the "unknown" type where all component instance
 types that are not directly specified in the type-flow get stored.
 *** SLOT component-type-view is a HASH TABLE
 The key for this hash table is a concrete component type (or the unknown
@@ -631,7 +630,7 @@ topological sort of depndencies. The first entry is the earliest type that must
 be processed before moving on to types that depend on it.
 ** Core State API
 *** Function MAKE-CORE-STATE
-Return a corestate instance. Take initargs, but usually none need to be defined.
+Return a core-state instance. Take initargs, but usually none need to be defined.
 
 *** Function ADD-SCENE-TREE-ROOT
 #+BEGIN_SRC common-lisp
@@ -648,7 +647,7 @@ This function sets the scene-tree slot in core-state to the supplied actor.
 This function takes a core-state, the actor (filled with components), and the
 initializer-thunk-list which contains a list of thunks taking no arguments. Each
 thunk will be run once at the appropriate time, to ensure the components in the
-object are initialized before they enter the scene tree.
+actor are initialized before they enter the scene tree.
 ** Core State Internals Future Considerations
 Accessing a vector is far faster than a hash table, by definition. But accessing
 a hash table by object reference is pretty useful.
