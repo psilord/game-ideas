@@ -1,9 +1,9 @@
 * STEP 1: A hybrid component system.
 There are a set of predefined components to make your life easier. You can add
 new components simply by making a new defclass from component and adding in
-whatever you want.
+whatever you want. You can use DEFINE-COMPONENT to help with this.
 
-A gobj class simply has a list of components and nothing else. Components can be
+An actor class simply has a list of components and nothing else. Components can be
 added or subtracted at will and are usually defined in the scene tree DSL but
 they can be programmatically made too.
 
@@ -14,13 +14,13 @@ they can be programmatically made too.
   ((%state :initarg :state
            :accessor state)
    (%actor :initarg :actor
-                 :initform NIL
+                 :initform nil
                  :accessor actor)))
 
 (defclass gobj ()
   ((%id :initarg :id
         :accessor id)
-   (%state :initarg :state ;; one of: :initialize, :active, :destroy
+   (%state :initarg :state ; one of: :initialize, :active, :destroy
            :accessor state
            :initform :initialize)
    ;; Keyed by instance, value is reference
@@ -31,7 +31,7 @@ they can be programmatically made too.
    ;; value is a list of instances of that type.
    (%components-by-type :initarg :components-by-type
                         :accessor components-by-type
-                        :initform (make-hash-table)
+                        :initform (make-hash-table))))
 #+END_SRC
 
 ** Core Components Dictionary
@@ -45,52 +45,48 @@ Renders a 3D set of basis vectors for visualizing the orientation of an object.
 (defclass hit-points (component)
   ((%hp :initarg :hp
         :initform 0
-        :accessor hp)))
+        :accessor hp)
+   (%max-hp :initarg :max-hp
+            :initform 0
+            :accessor max-hp)))
 #+END_SRC
 
 * STEP 2: A scene tree DSL using that component system.
 Here is a possible view of the scene tree DSL.
 
-In the DSL, it expected that all game objects and components on all game objects
-are referenceable in a forward manner.
+In the DSL, it is expected that all actors and components on all actors are
+referenceable in a forward manner.
 
-The name symbol of each gobj shall have < and > bracketing it. This is to allow
-them to be easly recognizable as gobj names, and to allow the macro transformer
-to use them as symbol names in the resultant expansion of the DSL into common
-lisp.
+The name symbol of each actor shall have @ prefixing it. This is to allow them
+to be easly recognizable as actor names, and to allow the macro transformer to
+use them as symbol names in the resultant expansion of the DSL into Common Lisp.
 
 NOTE: Keywords cannot be used as variables in LET.
 
 #+BEGIN_SRC common-lisp
-((<player-ship>
+((@player-ship
   ;; instance components
   ((transform)
    (hit-points :hp 100))
 
   ;; additional subpiece of the ship in rest of list.
-
-  (<turret>
+  (@turret
    ((transform))
-
    ;; a component which allows changing between two guns in that turret
-   (gun-manager
-    :guns (vector (get-component 'gun <gun1>)
-                  (get-component 'gun <gun2>)))
+   (gun-manager :guns (vector (get-component 'gun @gun1)
+                              (get-component 'gun @gun2)))
 
    ;; the 2 guns that the turrent can switch between
-   (<gun1>
+   (@gun1
     ((transform))
     ;; a component describing the gun mechanics
-    (gun
-     :shots 10
-     :type :beam))
+    (gun :shots 10
+         :type :beam))
 
-   (<gun2>
+   (@gun2
     ((transform))
-
-    (gun
-     :shots 10
-     :type :missle)))))
+    (gun :shots 10
+         :type :missle)))))
 #+END_SRC
 
 There is a problem with the above scene representation: It refers to components
