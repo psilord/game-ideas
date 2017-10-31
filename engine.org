@@ -682,21 +682,15 @@ current time, delta-time since last frame, etc.
 This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
 a actor in the initialize state.
-*** SLOT actor-initialize-thunks-db is a HASH TABLE
-This hash table is keyed by a reference to the actor
-instance. The value is the list of thunks needed to initialize
-all the components in the actor. The value is removed after the
-thunks are executed. The thunks are only executed once.
 *** SLOT actor-active-db is a HASH TABLE
 This hash table is keyed by a actor reference and its value is
 the game object itself. The value is the conceptual storage location for
 a actor and the component is in the active state.
 ** ALL components added to any actor
-*** SLOT component-initialize-view is a HASH TABLE
-This hash table is keyed by a reference to a component instance.
-The value is a reference to the component instance that is conceptually
-stored in the actor itself. Components which are in the
-initializing state are referenced in this hash table.
+*** SLOT component-initialize-thunks-db is a HASH TABLE
+This hash table is keyed by the type of a component instance.
+The value is a list of thunks associated with those components which
+are currently stored in the actors in actor-inititialize-db.
 *** SLOT component-active-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance.
 The value is a reference to the component instance that is conceptually
