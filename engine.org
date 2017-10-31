@@ -577,6 +577,23 @@ related to any particular game is NOT kept here.
 It is not intended that all states of actors or components have specific
 tables to which those objects move among.
 
+TODO: Cut the below into sections relating to the phase operations
+on the data.
+
+For example: INITIALIZING-PHASE should have actor-inititialize-db,
+component-initialize-db, component-initialize-thunks-db,
+component-initialize-by-type-view. Then ACTIVE-PHASE should have the
+active one, minus the thunks. There may need to be a DISPOSE-PHASE
+for destroying actors/components as well.
+
+In addition, there is the type-dependency list of ordered types that
+we can use to map over the the *-by-type-* stuff. And... it may need
+to be true that there are NO lists anywhere, all storage of
+components is by hash table to amke it far easier to find and
+move/remove them about other than a huge guaranteed O(n) search for
+them.
+
+
 This is somewhat soft, noted in some places.
 ** Context
 *** SLOT context is an INSTANCE of class context
