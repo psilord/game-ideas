@@ -380,7 +380,8 @@ specified here).
                                ;; happened over ordered components.
 
                                ;; TODO, exactly figure out how to call
-                               ;; collisions with the right collidees and such.
+                               ;; collisions with the right collidees and
+                               ;; such.
                                (execute-flow
                                 'ENTRY/COLLISIONS
                                 (flow 'component-logic-flow core-state)
