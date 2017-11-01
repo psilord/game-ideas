@@ -14,8 +14,8 @@ DSL but they can be programmatically made too.
   ((%state :initarg :state
            :accessor state)
    (%actor :initarg :actor
-                 :initform nil
-                 :accessor actor)))
+           :initform nil
+           :accessor actor)))
 
 (defclass gobj ()
   ((%id :initarg :id
@@ -205,7 +205,7 @@ specified here).
 
  (flow actor-initialization-flow
        (flow-state ENTRY :reset ()    ; bindings in a let for the two
-                                      ; functions.
+                                        ; functions.
                    ;; Select what I want to work on.
                    (lambda (core-state)
                      (actors-initialize-db core-state))
@@ -593,33 +593,40 @@ components is by hash table to amke it far easier to find and
 move/remove them about other than a huge guaranteed O(n) search for
 them.
 
+** Phase INITALIZE
+Actors and components put into the core-state with SPAWN-ACTOR
+first enter a conceptual phase called INITIALIZE. This phase is
+defined by the data structures the actor and components reside in,
+and any initializing thunks that may exist for the components.  At
+the end of this phase an actor and its components are removed from
+these two hash tables and appropriately moved into the ACTIVE hash
+tables.
+*** SLOT actor-inititialize-db is a HASH TABLE
+This hash table is keyed by an actor reference and its value is
+the actor instance itself. The value is the conceptual storage
+location for an actor in the initialize phase.
+*** SLOT component-initialize-by-type-view is a HASH TABLE
+This hash table is keyed by type of component. The value is
+another hash table keyed by reference to the component, and
+whose value is reference to a component stored in the actor.
+** Phase ACTIVE
+*** SLOT actor-active-db is a HASH TABLE
+This hash table is keyed by an actor reference and its value is the actor
+itself. The value is the conceptual storage location for an actor and the
+component is in the active state.
+*** SLOT component-active-view is a HASH TABLE
+This hash table is keyed by a reference to a component instance. The value
+is a reference to the component instance that is conceptually stored in
+the actor itself. Components which are in the active state are referenced
+in this hash table.
+** TODO Phase DESTROY
 
-This is somewhat soft, noted in some places.
 ** Context
 *** SLOT context is an INSTANCE of class context
 The core-state holds a CONTEXT object that is passed to all protocol
 functions for components via exceute-flow. It holds at LEAST time related
 attributes, like time since start of game, current time, delta-time since
 last frame, etc.
-** ALL actors intending to be inserted into the scene-tree
-*** SLOT actor-inititialize-db is a HASH TABLE
-This hash table is keyed by an actor reference and its value is the game
-object itself. The value is the conceptual storage location for an actor
-in the initialize state.
-*** SLOT actor-active-db is a HASH TABLE
-This hash table is keyed by an actor reference and its value is the actor
-itself. The value is the conceptual storage location for an actor and the
-component is in the active state.
-** ALL components added to any actor
-*** SLOT component-initialize-thunks-db is a HASH TABLE
-This hash table is keyed by the type of a component instance. The value is
-a list of thunks associated with those components which are currently
-stored in the actors in actor-inititialize-db.
-*** SLOT component-active-view is a HASH TABLE
-This hash table is keyed by a reference to a component instance. The value
-is a reference to the component instance that is conceptually stored in
-the actor itself. Components which are in the active state are referenced
-in this hash table.
 ** Scene tree
 *** SLOT scene-table is a HASH-TABLE
 This slot holds a hash table keyed by symbols, often keywords, whose
