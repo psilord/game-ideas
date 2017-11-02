@@ -623,10 +623,11 @@ in this hash table.
 
 ** Context
 *** SLOT context is an INSTANCE of class context
-The core-state holds a CONTEXT object that is passed to all protocol
-functions for components via exceute-flow. It holds at LEAST time related
-attributes, like time since start of game, current time, delta-time since
-last frame, etc.
+The core-state holds a CONTEXT object that is passed to all
+protocol functions for components via exceute-flow. It holds at
+LEAST time related attributes, like time since start of game,
+current time, delta-time since last frame, and things like
+window width and height.
 ** Scene tree
 *** SLOT scene-table is a HASH-TABLE
 This slot holds a hash table keyed by symbols, often keywords, whose
@@ -638,17 +639,51 @@ The object being referenced is conceptually stored in the slot
 actor-active-db.
 ** Call Flow
 *** SLOT call-flow-table is a HASH TABLE
-This hash table is keyed by the name of call-flow. The value is the
-conceptual storage location for an object describing the call-flow. It is
-that object which contains information about the flows contained in that
-specific call-flow.
-**** TODO Define call-flow object internals (and flow-state internals)
+This hash table is keyed by the name of call-flow. The value is another
+hash table keyed by flow names. This second hsah table's value is
+another hash table keyed by flow-state names. This third hash table's
+values are the actual flow-state instances.
+**** CLASS flow-state
+This is the concrete class whih defines a single flow state, which is
+contained in a flow, which is then contained in a call-flow.
+#+BEGIN_SRC common-lisp
+(defclass flow-state ()
+  (;; name of the flow-state
+   (%name :accessor name
+          :initarg :name)
+   ;; policy of the binding behavior, :reset means reset the
+   ;; bindings each time this state is run. No others are
+   ;; defined yet.
+   (%policy :accessor policy
+            :initarg :policy)
+   ;; If the state has a NIL transition function, then
+   ;; exitingp is T.
+   (%exitingp :accessor exitingp
+              :initarg :exitingp)
+   ;; Select the instances that for each one the action is
+   ;; called.  This can be a list of instances and/or hash
+   ;; tables, or a single instance or a single hash table.
+   (%selector :accessor selector
+              :initarg :selector)
+   ;; Execute this action for each instance returned by the
+   ;; selector.  The driver code cares about iterating over
+   ;; hash tables, etc.
+   (%action :accessor action
+            :initarg :action)
+   ;; To what state in the same flow should be transition? It
+   ;; is the raw state name (which is defined as a variable).
+   (%transition :accessor transition
+                :initarg :transition)
+   ;; The function which resets the binding to the initial
+   ;; contents.
+   (%reset :accessor reset
+           :initarg :reset)))
+#+END_SRC
 ** Type Dependency Flow
 *** SLOT type-flows is a HASH TABLE
 This hashtable is keyed by type-flow names. The values are the conceptual
 storage location for type-flow instances that contain the description of
 all named flows associated with that instance.
-**** TODO Define type-flow object internals (and flow object internals)
 *** SLOT unknown-type is a SYMBOL
 This gensym'd symbol represents the "unknown" type where all component
 instance types that are not directly specified in the type-flow get
