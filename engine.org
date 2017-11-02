@@ -703,12 +703,12 @@ graph, from left to right, symbol names of concrete types (or
 the unknown sentinel) in a topological sort of depndencies. The
 first entry is the earliest type that must be processed before
 moving on to types that depend on it.
-*** Core State API
-**** Function MAKE-CORE-STATE
+** Core State API
+*** Function MAKE-CORE-STATE
 Return a core-state instance. Take initargs, but usually none need to be
 defined.
 
-**** Function ADD-SCENE-TREE-ROOT
+*** Function ADD-SCENE-TREE-ROOT
 #+BEGIN_SRC common-lisp
 (ADD-SCENE-TREE-ROOT core-state actor)
 #+END_SRC
@@ -716,7 +716,7 @@ defined.
 This function sets the scene-tree slot in core-state to the supplied
 actor.
 
-**** Function ADD-INITIALIZING-ACTOR
+*** Function ADD-INITIALIZING-ACTOR
 #+BEGIN_SRC common-lisp
 (ADD-INITIALIZING-ACTOR core-state actor initializer-thunk-list)
 #+END_SRC
