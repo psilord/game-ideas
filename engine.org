@@ -593,7 +593,8 @@ components is by hash table to amke it far easier to find and
 move/remove them about other than a huge guaranteed O(n) search for
 them.
 
-** Phase INITALIZE
+** Phases of actors/components
+*** Phase INITALIZE
 Actors and components put into the core-state with SPAWN-ACTOR
 first enter a conceptual phase called INITIALIZE. This phase is
 defined by the data structures the actor and components reside in,
@@ -601,25 +602,25 @@ and any initializing thunks that may exist for the components.  At
 the end of this phase an actor and its components are removed from
 these two hash tables and appropriately moved into the ACTIVE hash
 tables.
-*** SLOT actor-inititialize-db is a HASH TABLE
+**** SLOT actor-inititialize-db is a HASH TABLE
 This hash table is keyed by an actor reference and its value is
 the actor instance itself. The value is the conceptual storage
 location for an actor in the initialize phase.
-*** SLOT component-initialize-by-type-view is a HASH TABLE
+**** SLOT component-initialize-by-type-view is a HASH TABLE
 This hash table is keyed by type of component. The value is
 another hash table keyed by reference to the component, and
 whose value is reference to a component stored in the actor.
-** Phase ACTIVE
-*** SLOT actor-active-db is a HASH TABLE
+*** Phase ACTIVE
+**** SLOT actor-active-db is a HASH TABLE
 This hash table is keyed by an actor reference and its value is the actor
 itself. The value is the conceptual storage location for an actor and the
 component is in the active state.
-*** SLOT component-active-view is a HASH TABLE
+**** SLOT component-active-view is a HASH TABLE
 This hash table is keyed by a reference to a component instance. The value
 is a reference to the component instance that is conceptually stored in
 the actor itself. Components which are in the active state are referenced
 in this hash table.
-** TODO Phase DESTROY
+*** TODO Phase DESTROY
 
 ** Context
 *** SLOT context is an INSTANCE of class context
@@ -644,7 +645,7 @@ hash table keyed by flow names. This second hsah table's value is
 another hash table keyed by flow-state names. This third hash table's
 values are the actual flow-state instances.
 **** CLASS flow-state
-This is the concrete class whih defines a single flow state, which is
+This is the concrete class which defines a single flow state, which is
 contained in a flow, which is then contained in a call-flow.
 #+BEGIN_SRC common-lisp
 (defclass flow-state ()
@@ -680,31 +681,34 @@ contained in a flow, which is then contained in a call-flow.
            :initarg :reset)))
 #+END_SRC
 ** Type Dependency Flow
-*** SLOT type-flows is a HASH TABLE
-This hashtable is keyed by type-flow names. The values are the conceptual
-storage location for type-flow instances that contain the description of
-all named flows associated with that instance.
+*** SLOT type-flow-table is a HASH TABLE
+This hashtable is keyed by type-flow names.
+TODO: determine what the values are.
 *** SLOT unknown-type is a SYMBOL
 This gensym'd symbol represents the "unknown" type where all component
 instance types that are not directly specified in the type-flow get
 stored.
+*** SLOT defined-types is a HASH TABLE
+This slot holds a hash table keyed by a component type name that
+has been specified in the type dag. The value of this hash is
+simply T for the defined keys.
 *** SLOT component-type-view is a HASH TABLE
 The key for this hash table is a concrete component type (or the unknown
 sentinel) and the value is a second hash table. This second hash table's
 key is a reference to a component. The second hash table's value is a
 reference to the same component which is conceptually stored in the actor.
 *** SLOT sorted-type-dependencies is a LIST
-This list contains, as a topological sort of the type-dependency graph,
-from left to right, symbol names of concrete types (or the unknown
-sentinel) in a topological sort of depndencies. The first entry is the
-earliest type that must be processed before moving on to types that depend
-on it.
-** Core State API
-*** Function MAKE-CORE-STATE
+This list contains, as a topological sort of the type-dependency
+graph, from left to right, symbol names of concrete types (or
+the unknown sentinel) in a topological sort of depndencies. The
+first entry is the earliest type that must be processed before
+moving on to types that depend on it.
+*** Core State API
+**** Function MAKE-CORE-STATE
 Return a core-state instance. Take initargs, but usually none need to be
 defined.
 
-*** Function ADD-SCENE-TREE-ROOT
+**** Function ADD-SCENE-TREE-ROOT
 #+BEGIN_SRC common-lisp
 (ADD-SCENE-TREE-ROOT core-state actor)
 #+END_SRC
@@ -712,7 +716,7 @@ defined.
 This function sets the scene-tree slot in core-state to the supplied
 actor.
 
-*** Function ADD-INITIALIZING-ACTOR
+**** Function ADD-INITIALIZING-ACTOR
 #+BEGIN_SRC common-lisp
 (ADD-INITIALIZING-ACTOR core-state actor initializer-thunk-list)
 #+END_SRC
