@@ -534,6 +534,29 @@ At this time type-flow forms may not nest.
 *** Nesting of DAG forms
 At this time dag definition forms may not nest.
 
+** Experimental code dealing with building the type dag
+This is experimental code in dealing with early segmentation of
+the dependency information. We need to ground the symbols into
+additional dependency forms if they represent other dags in the
+same type-dag.
+
+#+BEGIN_SRC common-lisp
+(ql:quickload :split-sequence)
+
+;; split list given "depends on" symbol of ->
+(let* ((x (split-sequence:split-sequence
+           '-> '(A B C D -> E F G -> H -> I -> J K -> L M N O)))
+       ;; cut into groups of two with rolling window
+       (connections
+         (loop :for (k j . nil) :in (maplist #'identity x)
+               :when j :collect `(,k ,j))))
+  ;; And show me the connection groups, which need to be shoved into
+  ;; cl-graph and connected into a larger dag.
+  (loop :for (from to) :in connections
+        :do (format t "Nodes: ~A depends on: ~A~%" from to)))
+
+#+END_SRC
+
 ** Example TYPE-FLOW
 
 #+BEGIN_SRC common-lisp
@@ -612,14 +635,16 @@ another hash table keyed by reference to the component, and
 whose value is reference to a component stored in the actor.
 *** Phase ACTIVE
 **** SLOT actor-active-db is a HASH TABLE
-This hash table is keyed by an actor reference and its value is the actor
-itself. The value is the conceptual storage location for an actor and the
-component is in the active state.
+This hash table is keyed by an actor reference and its value
+is the actor itself. The value is the conceptual storage
+location for an actor and the component is in the active
+state.
 **** SLOT component-active-view is a HASH TABLE
-This hash table is keyed by a reference to a component instance. The value
-is a reference to the component instance that is conceptually stored in
-the actor itself. Components which are in the active state are referenced
-in this hash table.
+This hash table is keyed by a reference to a component
+instance. The value is a reference to the component instance
+that is conceptually stored in the actor itself. Components
+which are in the active state are referenced in this hash
+table.
 *** TODO Phase DESTROY
 
 ** Context
