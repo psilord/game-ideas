@@ -560,36 +560,28 @@ same type-dag.
 ** Example TYPE-FLOW
 
 #+BEGIN_SRC common-lisp
-(type-flow default
+(type-flow :default (:enabled t)
            ;; It will be filled at runtime with the names of types not
            ;; specified here. They will have flow-states applied in random
            ;; order.
            (dag unknown-types
                 ())
 
-           ;; DAG core-types is required. This contains all core component
-           ;; type names.
-           (dag core-types
-                ( transform ))
-
            ;; DAG user-flow is required. In here goes the huge list of types
            ;; the user creates for components.
            (dag ordered-types
                 ((splice project user-flow "some/file/in/examples")))
 
-           ;; DAG all-types is required.
+           ;; DAG core-types is required. This contains all core component
+           ;; type names.
+           (dag core-types
+                ( transform ))
 
-           ;; This is the toplevel DAG that encodes all type dependency
-           ;; information for the order of application of flow-states.
+           ;; DAG all-ordered-types is required.
            (dag all-ordered-types
                 (
-                 ;; enforce that all unknown typed components get executed
-                 ;; first. Why? Beats me, arbitrary decision.
                  (splice unknown-types) ->
-                 ;; But ordered types should happen before core-types
                  (splice ordered-types) ->
-                 ;; because this holds the results of all changes the users
-                 ;; codes do.
                  (splice core-types))))
 #+END_SRC
 * core-state instance
