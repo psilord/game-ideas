@@ -639,6 +639,10 @@ which are in the active state are referenced in this hash
 table.
 *** TODO Phase DESTROY
 
+*** TODO Phase MAINTENANCE
+This phase is where maintenance things have to happen at a granularity
+of a max of each frame. Recompiling shader changes would be an example
+of something in this phase.
 ** Context
 *** SLOT context is an INSTANCE of class context
 The core-state holds a CONTEXT object that is passed to all
