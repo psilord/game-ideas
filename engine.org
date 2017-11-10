@@ -462,7 +462,7 @@ A type-dag holds a pile of DAG graph definitions. A type-dag is
 named and there is a standard type-dag provided by the system
 called ":core". The :core type-dag is designed to be imported into
 the "project" type-dag found in the project/data workspace. All
-type-dags (enabled or not) must have a unique name.
+type-dags (enabled only) must have a unique name.
 
 The top-level definition is:
 #+BEGIN_SRC common-lisp
