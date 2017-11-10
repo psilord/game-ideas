@@ -600,7 +600,8 @@ supply for their project that uses the :core definition.
 
 #+BEGIN_SRC common-lisp
 
-;; This is the type-dag-definition for core gear
+;; This is the type-dag-definition for core gear, like
+;; gear/data/core-component-dependencies.dag
 (type-dag-definition
  :core ; required name for core gear, always available for all projects.
  (:enabled t) ; we don't :import anything or specify :roots.
