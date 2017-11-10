@@ -502,7 +502,7 @@ A DAG in a type-dag is named with a symbol.
 It contains zero to N forms, called a dependency form with this BNF:
 
 dependency form: ([id+ [-> id+]?]*)
-id: symbol | (symbol)
+id: symbol | (splice symbol)
 
 Each dependency form represents a portion of the type dependency
 DAG under that dag definition.
