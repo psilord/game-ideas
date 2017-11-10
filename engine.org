@@ -444,29 +444,65 @@ specified here).
                    NIL NIL NIL)))
 #+END_SRC
 
-* STEP 4: An explicit component initialization description.
-Apply all of the call-graph methods to all components ordered by type of
-component.
+* STEP 4: An explicit component dependency description.
+The purpose of a *type-dag* is to order dependencies between component
+types. You can specify that component A must always be initialized
+before component B. In fact, a relationship expressed in a type-dag
+for two types holds for the entire component protocol. So, if B
+depends on A, then A will always have initilize-component run before
+B, and A will always have update-component run before B, and so on.
 
-** Definition of TYPE-FLOW
-A type-flow holds a pile of DAG graph definitions. A type-flow is named and
-there is a standard type-flow provided by the system called "default". The
-default type-flow is designed to load the "project" type-flow found in the
-user workspace. All type-flows must have a unique name.
+This method makes clear the component dependencies, as opposed to
+somehow specifying them in the define-component form--which is error
+prone, too distributed to debug it, and alienates the core component
+types.
+
+** Definition of TYPE-DAG
+A type-dag holds a pile of DAG graph definitions. A type-dag is
+named and there is a standard type-dag provided by the system
+called ":core". The :core type-dag is designed to be imported into
+the "project" type-dag found in the project/data workspace. All
+type-dags (enabled or not) must have a unique name.
 
 The top-level definition is:
 #+BEGIN_SRC common-lisp
-(type-flow name
-           dag0
+(type-dag name (:enabled t/nil
+                :import ((:name) (:name (dag1 dag2)))
+                :roots (dagX dagY dagZ))
 
-           dagN)
+          dag0
+          dag1
+          dag2
+
+          dagN)
 #+END_SRC
-** Definition of DAG in TYPE-FLOW
-A DAG in a type-flow is named with a symbol.
 
-It contains zero to N forms, called a dependency form:
+The options for a type-dag are
+*** :enabled t/nil
+Not optional. If nil, do not process the type dag. Skip it utterly.
+*** :import (dags*)
+Optional. The symbol =dags= can be a single keyword =:name= of a
+type-dag, in which case all defined dags are made available to
+use. Or a form of =(:name (dag0 dag1 ... dagN))= which means to
+make available just those dags specified in =:name= available for
+use. =NOTE:= Importing is not transitive. If A imports B, and B
+imports C, then A does NOT see C's dags.
+*** :roots (SYMBOL*)
+Partially Optional (at least ONE must be specified in some
+type-dag somewhere that is enabled). The named symbols must be a
+dag in the type-dag (or the imports). All of the named dags in
+a :roots form are considered root entry points for the
+dependency graph. As such they implicitly act as if they are the
+children of a single and empty imaginary root dag in the
+dependency graph.
 
-([symbol+ [->]?]*)
+** Definition of DAG in TYPE-DAG
+A DAG in a type-dag is named with a symbol.
+
+It contains zero to N forms, called a dependency form with this BNF:
+
+dependency form: ([id+ [->]?]*)
+id: symbol | (symbol)
 
 Each dependency form represents a portion of the type dependency DAG under
 that dag definition.
@@ -493,42 +529,34 @@ DAG may or may not be disjoint. A DAG by definition has no cycles.
 
 (A -> B C D -> E)
 
-A's state depends on B C D's state, and B C D's state depends on E's
-state.
+A's state depends on B C D's state, and B C D's state depends
+on E's state.
 
-After computing the final dag, a topological sort is performed which
-linearizes the state updates for all instances of the types in question.
+After computing the final dag, a topological sort is performed
+which linearizes the state updates for all instances of the
+types in question.
 
-So E's state is updated first, then B C D is updated in any order, then
-A's state.
+So E's state is updated first, then B C D is updated in any
+order, then A's state.
 
 **** Symbol position semantics
-Each symbol (but not ->) position in a dependency form, (example above:
-A B C D E) can contain the form:
+Each symbol (but not ->) position in a dependency form,
+(example above: A B C D E) can contain the form:
 
 ***** SYMBOL
 This is a concrete component class type name, like =transform=.
 
-LIMITATION: At this time, midlevel inheritance component types cannot
-be specified.
+LIMITATION: At this time, midlevel inheritance component
+types cannot be specified. Only leaves of component types
+may be specified here.
 
 ***** (SPLICE SYMBOL)
-This means to splice the DAG name, found in the same type-flow, into
-the DAG right at the form location. It will perform a cross product of
-edges into and out of the splice as expected.
+This means to splice the DAG name, found in the same (or
+imported) type-flow, into the DAG right at the form
+location. It will perform a cross product of edges into and
+out of the splice as expected.
 
-***** (SPLICE TYPE-FLOW-NAME SYMBOL PATH)
-Splice a DAG name, found in the type-flow located in the file at the
-path into the current DAG at the current location.
-
-***** (SYNC SYMBOL)
-This defines a fake node in the DAG definition that is used as a sync
-node in the DAG. A sync node is just a node the flow can go through
-without having to be a real type. This sync node is unique per DAG and
-per splice of it. The name of a sync node cannot by any type in the
-DAG, even gotten through splicing.
-
-*** Nesting of TYPE-FLOW forms
+*** Nesting of TYPE-DAG forms
 At this time type-flow forms may not nest.
 
 *** Nesting of DAG forms
@@ -557,32 +585,47 @@ same type-dag.
 
 #+END_SRC
 
-** Example TYPE-FLOW
+** Example TYPE-DAG
+
+This example contains both the :core definition and the one a user would
+supply for their project that uses the :core definition.
 
 #+BEGIN_SRC common-lisp
-(type-flow :default (:enabled t)
-           ;; It will be filled at runtime with the names of types not
-           ;; specified here. They will have flow-states applied in random
-           ;; order.
-           (dag unknown-types
-                ())
 
-           ;; DAG user-flow is required. In here goes the huge list of types
-           ;; the user creates for components.
-           (dag ordered-types
-                ((splice project user-flow "some/file/in/examples")))
+;; This is the type-dag-definition for core gear
+(type-dag-definitions
+ :core ; required name for core gear, always available for all projects.
+ (:enabled t) ; we don't :import anything or specify :roots.
 
-           ;; DAG core-types is required. This contains all core component
-           ;; type names.
-           (dag core-types
-                ( transform ))
+ ;; This dag is required to be present, named exactly this name, and be empty.
+ (dag unknown-types
+      ())
 
-           ;; DAG all-ordered-types is required.
-           (dag all-ordered-types
-                (
-                 (splice unknown-types) ->
-                 (splice ordered-types) ->
-                 (splice core-types))))
+ ;; DAG core-types is required. This contains all core component
+ ;; type names with the right deps if any. Created by core devs.
+ ;; It contains ALL components from core.
+ (dag core-types
+      ( transform ))
+ )
+
+;; this is the type definition for a specific project, like
+;; gear/example/data/component-dependencies.dag
+(type-dag-definitions
+ :gear-example
+ (:enabled t
+  :import (:core (unknown-types core-types)) ; bring in named dags
+                                        ; from :core
+  :roots (all-ordered-types)) ;; master entry point for this dag.
+
+ ;; user chooses this name
+ (dag ordered-types
+      ())
+
+ ;; user creates the master ordering of the types.
+ (dag all-ordered-types
+      ((splice unknown-types)
+       -> (splice ordered-types)
+       -> (splice core-types))))
 #+END_SRC
 * core-state instance
 The core-state is an instance holding bookkeeping information to enable the
@@ -591,9 +634,6 @@ related to any particular game is NOT kept here.
 
 It is not intended that all states of actors or components have specific
 tables to which those objects move among.
-
-TODO: Cut the below into sections relating to the phase operations
-on the data.
 
 For example: INITIALIZING-PHASE should have actor-inititialize-db,
 component-initialize-db, component-initialize-thunks-db,
@@ -702,8 +742,8 @@ contained in a flow, which is then contained in a call-flow.
            :initarg :reset)))
 #+END_SRC
 ** Type Dependency Flow
-*** SLOT type-flow-table is a HASH TABLE
-This hashtable is keyed by type-flow names.
+*** SLOT type-dag-table is a HASH TABLE
+This hashtable is keyed by type-dag names.
 TODO: determine what the values are.
 *** SLOT unknown-type is a SYMBOL
 This gensym'd symbol represents the "unknown" type where all component
