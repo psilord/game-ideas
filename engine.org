@@ -559,7 +559,7 @@ out of the splice as expected.
 
 ***** (SYNC-LOCAL SYMBOL)
 A phantom node in the dag simply used for synchronization of
-flows. If this dag is spliced, each spliced dag wil get its
+flows. If this dag is spliced, each spliced dag will get its
 own copy of the phantom node.
 
 
