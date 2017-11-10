@@ -557,6 +557,12 @@ imported) type-flow, into the DAG right at the form
 location. It will perform a cross product of edges into and
 out of the splice as expected.
 
+***** (SYNC-LOCAL SYMBOL)
+A phantom node in the dag simply used for synchronization of
+flows. If this dag is spliced, each spliced dag wil get its
+own copy of the phantom node.
+
+
 *** Nesting of TYPE-DAG forms
 At this time type-flow forms may not nest.
 
