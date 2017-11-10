@@ -466,15 +466,16 @@ type-dags (enabled only) must have a unique name.
 
 The top-level definition is:
 #+BEGIN_SRC common-lisp
-(type-dag name (:enabled t/nil
-                :import ((:name) (:name (dag1 dag2)))
-                :roots (dagX dagY dagZ))
+(type-dag-definition
+ name (:enabled t/nil
+       :import ((:name) (:name (dag1 dag2)))
+       :roots (dagX dagY dagZ))
 
-          dag0
-          dag1
-          dag2
+ dag0
+ dag1
+ dag2
 
-          dagN)
+ dagN)
 #+END_SRC
 
 The options for a type-dag are
@@ -600,7 +601,7 @@ supply for their project that uses the :core definition.
 #+BEGIN_SRC common-lisp
 
 ;; This is the type-dag-definition for core gear
-(type-dag-definitions
+(type-dag-definition
  :core ; required name for core gear, always available for all projects.
  (:enabled t) ; we don't :import anything or specify :roots.
 
@@ -618,7 +619,7 @@ supply for their project that uses the :core definition.
 
 ;; this is the type definition for a specific project, like
 ;; gear/example/data/component-dependencies.dag
-(type-dag-definitions
+(type-dag-definition
  :gear-example
  (:enabled t
   :import (:core (unknown-types core-types)) ; bring in named dags
