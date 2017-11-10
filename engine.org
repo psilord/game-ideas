@@ -504,12 +504,13 @@ It contains zero to N forms, called a dependency form with this BNF:
 dependency form: ([id+ [->]?]*)
 id: symbol | (symbol)
 
-Each dependency form represents a portion of the type dependency DAG under
-that dag definition.
+Each dependency form represents a portion of the type dependency
+DAG under that dag definition.
 
-Here is an example of the DAG form. The order of the dependency forms
-themselves is not meaningful as all of them together describe the DAG. The
-DAG may or may not be disjoint. A DAG by definition has no cycles.
+Here is an example of the DAG form. The order of the dependency
+forms themselves is not meaningful as all of them together
+describe the DAG. The DAG may or may not be disjoint. A DAG by
+definition has no cycles.
 
 #+BEGIN_SRC common-lisp
 (dag name
@@ -597,7 +598,8 @@ supply for their project that uses the :core definition.
  :core ; required name for core gear, always available for all projects.
  (:enabled t) ; we don't :import anything or specify :roots.
 
- ;; This dag is required to be present, named exactly this name, and be empty.
+ ;; This dag is required to be present, named exactly this name,
+ ;; and be empty.
  (dag unknown-types
       ())
 
