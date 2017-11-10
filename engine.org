@@ -480,14 +480,16 @@ The top-level definition is:
 
 The options for a type-dag are
 *** :enabled t/nil
-Not optional. If nil, do not process the type dag. Skip it utterly.
+Not optional. Single instance. If nil, do not process the type
+dag. Skip it utterly.
 *** :import (dags*)
-Optional. The symbol =dags= can be a single keyword =:name= of a
-type-dag, in which case all defined dags are made available to
-use. Or a form of =(:name (dag0 dag1 ... dagN))= which means to
-make available just those dags specified in =:name= available for
-use. =NOTE:= Importing is not transitive. If A imports B, and B
-imports C, then A does NOT see C's dags.
+Optional. Zero or more instances. The symbol =dags= can be a
+single keyword =:name= of a type-dag, in which case all defined
+dags are made available to use. Or a form of =(:name (dag0 dag1
+... dagN))= which means to make available just those dags
+specified in =:name= available for use. =NOTE:= Importing is not
+transitive. If A imports B, and B imports C, then A does NOT see
+C's dags.
 *** :roots (SYMBOL*)
 Partially Optional (at least ONE must be specified in some
 type-dag somewhere that is enabled). The named symbols must be a
