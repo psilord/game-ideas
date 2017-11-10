@@ -501,8 +501,8 @@ A DAG in a type-dag is named with a symbol.
 
 It contains zero to N forms, called a dependency form with this BNF:
 
-dependency form: ([id+ [-> id+]?]*)
-id: component-type | (splice dag-name)
+<dependency form>: ([<id>+ [-> <id>+]?]*)
+<id>: component-type | (splice dag-name) | (sync-local symbol)
 
 Each dependency form represents a portion of the type dependency
 DAG under that dag definition.
@@ -540,7 +540,7 @@ types in question.
 So E's state is updated first, then B C D is updated in any
 order, then A's state.
 
-**** Symbol position semantics
+**** BNF <id> syntax and semantics
 Each symbol (but not ->) position in a dependency form,
 (example above: A B C D E) can contain the form:
 
