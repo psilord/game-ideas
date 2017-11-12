@@ -639,6 +639,44 @@ supply for their project that uses the :core definition.
        -> (splice ordered-types)
        -> (splice core-types))))
 #+END_SRC
+** Generalized DAG language for component-dependencies.
+#+BEGIN_SRC common-lisp
+;; This is the type-dag-definition for core gear, like
+;; gear/data/core-component-dependencies.dag
+(dag-definition
+ (:core :kind component-dependency
+        :enabled t)
+
+ ;; This dag is required to be present, named exactly this name,
+ ;; and be empty.
+ (subdag unknown-types
+         ())
+
+ ;; DAG core-types is required. This contains all core component
+ ;; type names with the right deps if any. Created by core devs.
+ ;; It contains ALL components from core.
+ (subdag core-types
+         ( transform ))
+ )
+
+;; this is the type definition for a specific project, like
+;; gear/example/data/component-dependencies.dag
+(dag-definition
+ (:gear-example :enabled t
+                :kind component-dependency
+                :depends-on ((:core (unknown-types core-types)))
+                :roots (all-ordered-types))
+ ;; user chooses this name
+ (subdag ordered-types
+         ())
+
+ ;; user creates the master ordering of the types.
+ (subdag all-ordered-types
+         ((splice unknown-types)
+          -> (splice ordered-types)
+          -> (splice core-types))))
+#+END_SRC
+
 * core-state instance
 The core-state is an instance holding bookkeeping information to enable the
 execution of the methods on the components and other places. "Game" state
