@@ -643,9 +643,10 @@ supply for their project that uses the :core definition.
 #+BEGIN_SRC common-lisp
 ;; This is the type-dag-definition for core gear, like
 ;; gear/data/core-component-dependencies.dag
-(dag-definition
- (:core :kind component-dependency
-        :enabled t)
+(graph-definition
+ :core
+ (:type component-dependency
+  :enabled t)
 
  ;; This dag is required to be present, named exactly this name,
  ;; and be empty.
@@ -654,18 +655,20 @@ supply for their project that uses the :core definition.
 
  ;; DAG core-types is required. This contains all core component
  ;; type names with the right deps if any. Created by core devs.
- ;; It contains ALL components from core.
+ ;; It contains ALL components from core and is managed by hand.
  (subdag core-types
          ( transform ))
  )
 
 ;; this is the type definition for a specific project, like
 ;; gear/example/data/component-dependencies.dag
-(dag-definition
- (:gear-example :enabled t
-                :kind component-dependency
-                :depends-on ((:core (unknown-types core-types)))
-                :roots (all-ordered-types))
+(graph-definition
+ :gear-example
+ (:enabled t
+  :type component-dependency
+  :depends-on ((:core (unknown-types core-types)))
+  :roots (all-ordered-types))
+
  ;; user chooses this name
  (subdag ordered-types
          ())
