@@ -554,11 +554,19 @@ LIMITATION: At this time, midlevel inheritance component
 types cannot be specified. Only leaves of component types
 may be specified here.
 
-***** (SPLICE SYMBOL)
-This means to splice the DAG name, found in the same (or
-imported) type-flow, into the DAG right at the form
-location. It will perform a cross product of edges into and
-out of the splice as expected.
+***** (SPLICE SYMBOL &optional INSTANCE-NAME)
+Splice the subgraph named by SYMBOL into the graph in the
+current position. If INSTANCE-NAME (which can be a symbol or
+integer >=0) is not supplied, then all splices of the same
+SYMBOL will identify the exact same subgraph. Otherwise, it
+will specify the subgraph denoted by the INSTANCE-NAME. So
+in this dependency form: ((splice a) -> (splice a))
+represents a single splice of the subgraph A whose edges
+from the leaves wrap around to the roots, causing a
+cycle. In this dependency form: ((splice a) -> (splice a
+'a)) it represents an entire instance of subgraph 'a' which
+has a set of edges to the roots of another entire instance
+of 'a'.
 
 ***** (SYNC-LOCAL SYMBOL)
 A phantom node in the dag simply used for synchronization of
@@ -645,7 +653,7 @@ supply for their project that uses the :core definition.
 ;; gear/data/core-component-dependencies.dag
 (graph-definition
  :core
- (:type component-dependency
+ (:category component-dependency
   :enabled t)
 
  ;; This dag is required to be present, named exactly this name,
@@ -665,7 +673,7 @@ supply for their project that uses the :core definition.
 (graph-definition
  :gear-example
  (:enabled t
-  :type component-dependency
+  :category component-dependency
   :depends-on ((:core (unknown-types core-types)))
   :roots (all-ordered-types))
 
